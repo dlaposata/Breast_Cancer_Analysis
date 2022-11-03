@@ -1,0 +1,19 @@
+# Analysis of the data by Austin
+```{r}
+# Import packages
+library(tidyverse)
+library(ggplot2)
+```
+```{r}
+# Load the data
+data <- read.csv("breast_cancer_diagnostic_data.csv")
+```
+
+```{r}
+# Initial data exploration
+
+# View the first 6 rows of the data
+head(data)
+# Available variables
+names(data)
+```
