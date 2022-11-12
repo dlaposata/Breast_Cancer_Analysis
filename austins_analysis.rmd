@@ -17,3 +17,13 @@ head(data)
 # Available variables
 names(data)
 ```
+
+```{r}
+# Check for missing values
+sum(is.na(data))
+head(data[which(is.na(data)), ])
+```
+
+```{r}
+
+```
