@@ -1,1 +1,19 @@
 # This r-markdown file is used to import the data and all of our own personal models as a final document
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(caret)
+```
+
+```{r}
+set.seed(420)
+data <- read.csv("breast_cancer_diagnostic_data.csv")
+data <- subset(data, select = -c(X))
+split <- sample(c(rep(0, 0.6 * nrow(data)), rep(1, 0.4 * nrow(data))))
+train <- data[split == 0, ]
+test <- data[split== 1, ]
+#write.csv(train,"training.csv", row.names = FALSE)
+#write.csv(test,"test.csv", row.names = FALSE)
+```
