@@ -1,13 +1,23 @@
-# This r-markdown file is used to import the data and all of our own personal models as a final document
+---
+title: "Characterizing breast cancer cells"
+author: Austin Lackey, Ethan Powers and Danny Laposata
+date: Friday, November 9th, 2022
+output: powerpoint_presentation
+---
 
-```{r}
+## The data
+
+- We have a dataset of 569 breast cancer cells, some of which are cancerous and some of which are benign.
+- We have 30 features for each cell, which are the measurements of the cell.
+- We have a binary variable, `diagnosis`, which is `M` for malignant and `B` for benign.
+- Add more stuff here...
+
+## Sample Output
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(caret)
-```
-
-```{r}
 set.seed(420)
 data <- read.csv("breast_cancer_diagnostic_data.csv")
 data <- subset(data, select = -c(X))
@@ -17,3 +27,19 @@ test <- data[split== 1, ]
 #write.csv(train,"training.csv", row.names = FALSE)
 #write.csv(test,"test.csv", row.names = FALSE)
 ```
+
+```{r, echo=FALSE}
+#histogram
+print(ggplot(data, aes(x = diagnosis)) + geom_bar(aes(fill=diagnosis)) + labs(title = "Histogram of Diagnosis", x = "Diagnosis", y = "Count", fill="Diagnosis"))
+```
+
+## Plot
+```{r, echo=FALSE}
+#scatterplot
+print(ggplot(data, aes(x = radius_mean, y = texture_mean, color = diagnosis)) + geom_point() + 
+    labs(title = "Scatterplot of Radius Mean vs Texture Mean", x = "Radius Mean", y = "Texture Mean", color="Diagnosis"))
+```
+
+## Works Cited
+
+- Insert link to kaggle dataset here
