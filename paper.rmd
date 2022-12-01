@@ -1,0 +1,28 @@
+---
+title: "Paper"
+author: "Austin Lackey, Ethan Powers and Danny Laposata"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Sample Output
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(caret)
+set.seed(420)
+data <- read.csv("breast_cancer_diagnostic_data.csv")
+data <- subset(data, select = -c(X))
+split <- sample(c(rep(0, 0.6 * nrow(data)), rep(1, 0.4 * nrow(data))))
+train <- data[split == 0, ]
+test <- data[split== 1, ]
+#write.csv(train,"training.csv", row.names = FALSE)
+#write.csv(test,"test.csv", row.names = FALSE)
+```
+
+```{r}
+print(names(train))
+```
