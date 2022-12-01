@@ -1,0 +1,296 @@
+---
+title: "ethan_analysis"
+author: "Ethan Powers"
+date: '2022-11-12'
+output: html_document
+---
+
+```{r}
+#install.packages("tidymodels")
+#install.packages("fs")
+#install.packages("caret")
+#install.packages("caTools")
+#install.packages("leaps")
+#install.packages("glmnet")
+#install.packages("pls")
+#install.packages("forecast")
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+
+setwd("~/Desktop/DSCI/DSCI445/Project")
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(leaps)
+library(caTools)
+library(tidymodels)
+library(glmnet)
+library(pls)
+library(forecast)
+
+set.seed(420)
+
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+dataTot <- dataTemp %>% select_if(~ !any(is.na(.)))
+testTot <- read.csv("test.csv")
+trainingTot <- read.csv("training.csv")
+
+```
+
+#Dividing the data, test, and training data between malignant and benign
+```{r}
+#Malignant
+tempM <- dataTot[dataTot$diagnosis == 'M', ]
+dataM <- tempM[, !names(tempM) %in% c("diagnosis")]
+splitM <- sample(c(rep(0, 0.6 * nrow(dataM)), rep(1, 0.4 * nrow(dataM))))
+trainingM <- dataM[splitM == 0, ]
+testM <- dataM[splitM == 1, ]
+
+#Benign
+tempB <- dataTot[dataTot$diagnosis == 'B', ]
+dataB <- tempB[, !names(tempB) %in% c("diagnosis")]
+splitB <- sample(c(rep(0, 0.6 * nrow(dataB)), rep(1, 0.4 * nrow(dataB))))
+trainingB <- dataB[splitB == 0, ]
+testB <- dataB[splitB == 1, ]
+```
+
+
+
+#Predicting the mean of the radius of the cancer cells between both Malignant & Benign combined and seperate
+```{r}
+#The prediction on the Total testing data set
+reg_trainTot <- lm(radius_mean~., data = trainingTot)
+pred_testTot <- predict(reg_trainTot, newdata = testTot)
+error_testTot <- mean((testTot[, "radius_mean"] - pred_testTot)^2)
+
+#The prediction on the Malignant testing data set
+reg_trainM <- lm(radius_mean~., data = trainingM)
+pred_testM <- predict(reg_trainM, newdata = testM)
+error_testM <- mean((testM[, "radius_mean"] - pred_testM)^2)
+
+#The prediction on the Benign testing data set
+reg_trainB <- lm(radius_mean~., data = trainingB)
+pred_testB <- predict(reg_trainB, newdata = testB)
+error_testB <- mean((testB[, "radius_mean"] - pred_testB)^2)
+
+print("Total test set error:")
+print(error_testTot)
+print('Malignant test set error:')
+print(error_testM)
+print('Benign test set error:')
+print(error_testB)
+```
+
+
+
+#ridge regression
+```{r}
+#Total
+training_matxTot <- model.matrix(radius_mean ~ . , data = trainingTot)[, -1 ]
+test_matxTot <- model.matrix(radius_mean ~ . , data = testTot)[,-1]
+
+cv_finalTot = cv.glmnet(training_matxTot , trainingTot$radius_mean, nfolds = 10, alpha=0)
+lamTot = cv_finalTot$lambda.min
+
+ridge_regTot = glmnet(training_matxTot , trainingTot$radius_mean, nfolds = 10, alpha = 0)
+ridge_preTot = predict(ridge_regTot, s=lamTot, newx = test_matxTot)
+error_test_ridTot <- mean((ridge_preTot - testTot$radius_mean)^2)
+```
+```{r}
+#Malignant
+training_matxM <- model.matrix(radius_mean ~ . , data = trainingM)[, -1 ]
+test_matxM <- model.matrix(radius_mean ~ . , data = testM)[,-1]
+
+cv_finalM = cv.glmnet(training_matxM , trainingM$radius_mean, nfolds = 10, alpha=0)
+lamM = cv_finalM$lambda.min
+
+ridge_regM = glmnet(training_matxM , trainingM$radius_mean, nfolds = 10, alpha = 0)
+ridge_preM = predict(ridge_regM, s=lamM, newx = test_matxM)
+error_test_ridM <- mean((ridge_preM - testM$radius_mean)^2)
+```
+```{r}
+#Benign
+training_matxB <- model.matrix(radius_mean ~ . , data = trainingB)[, -1 ]
+test_matxB <- model.matrix(radius_mean ~ . , data = testB)[,-1]
+
+cv_finalB = cv.glmnet(training_matxB , trainingB$radius_mean, nfolds = 10, alpha=0)
+lamB = cv_finalB$lambda.min
+
+ridge_regB = glmnet(training_matxB , trainingB$radius_mean, nfolds = 10, alpha = 0)
+ridge_preB = predict(ridge_regB, s=lamB, newx = test_matxB)
+error_test_ridB <- mean((ridge_preB - testB$radius_mean)^2)
+```
+```{r}
+print("Total")
+print(error_test_ridTot)
+print("Malignant")
+print(error_test_ridM)
+print("Benign")
+print(error_test_ridB)
+```
+
+
+
+#lasso
+```{r}
+#Total
+lasso_setTot = glmnet(training_matxTot, trainingTot$radius_mean, nfolds = 10, alpha=1)
+lasso_preTot = predict(lasso_setTot , s= lamTot, newx=test_matxTot)
+error_test_lassoTot <- mean((lasso_preTot - testTot$radius_mean)^2)
+```
+```{r}
+#Maligant
+lasso_setM = glmnet(training_matxM, trainingM$radius_mean, nfolds = 10, alpha=1)
+lasso_preM = predict(lasso_setM , s= lamM, newx=test_matxM)
+error_test_lassoM <- mean((lasso_preM - testM$radius_mean)^2)
+```
+```{r}
+#Benign
+lasso_setB = glmnet(training_matxB, trainingB$radius_mean, nfolds = 10, alpha=1)
+lasso_preB = predict(lasso_setB , s= lamB, newx=test_matxB)
+error_test_lassoB <- mean((lasso_preB - testB$radius_mean)^2)
+```
+```{r}
+print("Total")
+print(error_test_lassoTot)
+print("Malignant")
+print(error_test_lassoM)
+print("Benign")
+print(error_test_lassoB)
+```
+
+
+
+#PCR
+```{r}
+#Total
+trainingTot2 = dataTot %>% sample_frac(0.6)
+testTot2 = dataTot %>% setdiff(trainingTot2)
+pcr_fitTot2 = pcr(radius_mean ~ ., data = trainingTot2 , scale = TRUE, validation = "CV")
+summary(pcr_fitTot2)
+```
+```{r}
+#Total cont M is 31
+x_trainingTot = model.matrix(radius_mean~., trainingTot2)[,-1]
+x_testTot = model.matrix(radius_mean~., testTot2)[,-1]
+
+y_trainingTot = trainingTot2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+y_testTot = testTot2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+pcr_predTot = predict(pcr_fitTot2, x_testTot, ncomp=31)
+error_test_pcrTot <- mean((pcr_predTot-y_testTot)^2)
+```
+
+```{r}
+#Malignant
+trainingM2 = dataM %>% sample_frac(0.6)
+testM2 = dataM %>% setdiff(trainingM2)
+pcr_fitM2 = pcr(radius_mean ~ ., data = trainingM2 , scale = TRUE, validation = "CV")
+summary(pcr_fitM2)
+```
+```{r}
+#Maligant cont M is 30
+x_trainingM = model.matrix(radius_mean~., trainingM2)[,-1]
+x_testM = model.matrix(radius_mean~., testM2)[,-1]
+
+y_trainingM = trainingM2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+y_testM = testM2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+pcr_predM = predict(pcr_fitM2, x_testM, ncomp=30)
+error_test_pcrM <- mean((pcr_predM-y_testM)^2)
+```
+
+```{r}
+#Belign
+trainingB2 = dataB %>% sample_frac(0.6)
+testB2 = dataB %>% setdiff(trainingB2)
+pcr_fitB2 = pcr(radius_mean ~ ., data = trainingB2 , scale = TRUE, validation = "CV")
+summary(pcr_fitB2)
+```
+```{r}
+#Belign cont M is 29
+x_trainingB = model.matrix(radius_mean~., trainingB2)[,-1]
+x_testB = model.matrix(radius_mean~., testB2)[,-1]
+
+y_trainingB = trainingB2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+y_testB = testB2 %>%
+  select(radius_mean) %>%
+  unlist() %>%
+  as.numeric()
+
+pcr_predB = predict(pcr_fitB2, x_testB, ncomp=29)
+error_test_pcrB <- mean((pcr_predB-y_testB)^2)
+```
+```{r}
+print("Total")
+print(error_test_pcrTot)
+print("Malignant")
+print(error_test_pcrM)
+print("Benign")
+print(error_test_pcrB)
+```
+
+
+
+#PLS
+```{r}
+#total
+pls_fitTot = plsr(radius_mean~., data = trainingTot2, scale = TRUE, validation = "CV")
+summary(pls_fitTot)
+```
+```{r}
+#Total cont M is 30
+pls_predTot = predict(pls_fitTot, x_testTot, ncomp = 30)
+error_test_plsTot <- mean((pls_predTot - y_testTot)^2)
+```
+
+#Malignant
+```{r}
+pls_fitM = plsr(radius_mean~., data = trainingM2, scale = TRUE, validation = "CV")
+summary(pls_fitM)
+```
+```{r}
+#Malignant cont M is 30
+pls_predM = predict(pls_fitM, x_testM, ncomp = 30)
+error_test_plsM <- mean((pls_predM - y_testM)^2)
+```
+
+```{r}
+#Benign
+pls_fitB = plsr(radius_mean~., data = trainingB2, scale = TRUE, validation = "CV")
+summary(pls_fitB)
+```
+
+```{r}
+#Benign cont M is 26
+pls_predB = predict(pls_fitB, x_testB, ncomp = 26)
+error_test_plsB <- mean((pls_predB - y_testB)^2)
+```
+```{r}
+print("Total")
+print(error_test_plsTot)
+print("Malignant")
+print(error_test_plsM)
+print("Benign")
+print(error_test_plsB)
+```
+
