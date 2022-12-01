@@ -16,12 +16,39 @@ data <- read.csv("breast_cancer_diagnostic_data.csv")
 head(data)
 # Available variables
 names(data)
+# Removing the ID column
+data <- data[,-1]
+
 ```
 
 ```{r}
 # Check for missing values
 sum(is.na(data))
 head(data[which(is.na(data)), ])
+```
+
+```{r}
+# Looking for correlations between variables
+library(GGally)
+ggpairs(data, columns = 1:10)
+ggpairs(data, columns = c(1, 11:20))
+ggpairs(data, columns = c(1, 21:30))
+```
+
+Variables to note: radius_mean, perimeter_worst, area_worst, concave.points_worst
+
+```{r}
+#logistic regression
+data$diagnosis_binary <- ifelse(data$diagnosis == "M", 1, 0)
+logistic_model <- glm(diagnosis_binary ~ radius_mean + perimeter_worst + area_worst + concave.points_worst, data = data, family = binomial)
+summary(logistic_model)
+```
+
+```{r}
+ggplot(data, aes(x = radius_mean, y = texture_worst, color=diagnosis)) + geom_point()
+```
+
+```{r}
 ```
 
 ```{r}
