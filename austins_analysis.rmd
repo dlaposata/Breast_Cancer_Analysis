@@ -3,45 +3,62 @@
 # Import packages
 library(tidyverse)
 library(ggplot2)
+library(GGally)
+library(knitr)
 ```
+
 ```{r}
 # Load the data
 data <- read.csv("breast_cancer_diagnostic_data.csv")
-```
+training <- read.csv("training.csv")
+test <- read.csv("test.csv")
 
-```{r}
-# Initial data exploration
 
-# View the first 6 rows of the data
-head(data)
-# Available variables
-names(data)
+# Data Cleaning
 # Removing the ID column
 data <- data[,-1]
-
-```
-
-```{r}
+test <- test[,-1]
+training <- training[,-1]
+# Removing the X column from data
+data <- data[,1:(length(data)-1)]
 # Check for missing values
-sum(is.na(data))
-head(data[which(is.na(data)), ])
+print(paste(sum(is.na(data)), "missing values in the data"))
+# Available variables
+print(paste("There are", length(data), "variables available"))
+print(names(data))
 ```
 
 ```{r}
 # Looking for correlations between variables
-library(GGally)
-ggpairs(data, columns = 1:10)
-ggpairs(data, columns = c(1, 11:20))
-ggpairs(data, columns = c(1, 21:30))
+g1 <- ggpairs(data, columns = 1:10)
+g2 <- ggpairs(data, columns = c(1, 11:20))
+g3 <- ggpairs(data, columns = c(1, 21:31))
 ```
 
 Variables to note: radius_mean, perimeter_worst, area_worst, concave.points_worst
 
 ```{r}
-#logistic regression
+# Setting up a binary column for diagnosis
 data$diagnosis_binary <- ifelse(data$diagnosis == "M", 1, 0)
-logistic_model <- glm(diagnosis_binary ~ radius_mean + perimeter_worst + area_worst + concave.points_worst, data = data, family = binomial)
-summary(logistic_model)
+training$diagnosis_binary <- ifelse(training$diagnosis == "M", 1, 0)
+test$diagnosis_binary <- ifelse(test$diagnosis == "M", 1, 0)
+```
+
+```{r}
+#logistic regression using predictors: radius_mean, area_worst, concave.points_worst
+logistic_model <- glm(data = training, diagnosis_binary ~ radius_mean + area_worst + concave.points_worst, family = binomial)
+print(summary(logistic_model))
+logistic_model.prob <- predict(logistic_model, test, type = "response")
+logistic_model.pred <- ifelse(logistic_model.prob > 0.5, 1, 0)
+logistic_model.pos <- logistic_model.prob[logistic_model.pred == 1]
+logistic_model.neg <- logistic_model.prob[logistic_model.pred == 0]
+logistic_model_error <- test$diagnosis_binary != as.integer(logistic_model.pred)
+ggplot() + geom_point(aes(x = test$radius_mean, y=test$perimeter_worst, color = test$diagnosis))
+print(ggplot() + geom_point(aes(x = test$texture_mean, y=test$perimeter_mean, color = !logistic_model_error)) + labs(title = "Logistic Regression", x="texture_mean", y="perimeter_mean", color="Correct Prediction"))
+```
+
+```{r}
+mean(logistic_model_error)
 ```
 
 ```{r}
