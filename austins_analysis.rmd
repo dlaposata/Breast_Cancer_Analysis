@@ -5,6 +5,8 @@ library(tidyverse)
 library(ggplot2)
 library(GGally)
 library(knitr)
+library(boot)
+library(caret)
 ```
 
 ```{r}
@@ -19,6 +21,9 @@ test <- read.csv("test.csv")
 data <- data[,-1]
 test <- test[,-1]
 training <- training[,-1]
+data$diagnosis <- as.factor(data$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+training$diagnosis <- as.factor(training$diagnosis)
 # Removing the X column from data
 data <- data[,1:(length(data)-1)]
 # Check for missing values
@@ -39,35 +44,61 @@ Variables to note: radius_mean, perimeter_worst, area_worst, concave.points_wors
 
 ```{r}
 # Setting up a binary column for diagnosis
-data$diagnosis_binary <- ifelse(data$diagnosis == "M", 1, 0)
-training$diagnosis_binary <- ifelse(training$diagnosis == "M", 1, 0)
-test$diagnosis_binary <- ifelse(test$diagnosis == "M", 1, 0)
+dataBinary <- data
+trainingBinary <- training
+testBinary <- test
+dataBinary$diagnosis_binary <- ifelse(data$diagnosis == "M", 1, 0)
+trainingBinary$diagnosis_binary <- ifelse(training$diagnosis == "M", 1, 0)
+testBinary$diagnosis_binary <- ifelse(test$diagnosis == "M", 1, 0)
 ```
 
 ```{r}
-#logistic regression using predictors: radius_mean, area_worst, concave.points_worst
-logistic_model <- glm(data = training, diagnosis_binary ~ radius_mean + area_worst + concave.points_worst, family = binomial)
-print(summary(logistic_model))
-logistic_model.prob <- predict(logistic_model, test, type = "response")
-logistic_model.pred <- ifelse(logistic_model.prob > 0.5, 1, 0)
-logistic_model.pos <- logistic_model.prob[logistic_model.pred == 1]
-logistic_model.neg <- logistic_model.prob[logistic_model.pred == 0]
-logistic_model_error <- test$diagnosis_binary != as.integer(logistic_model.pred)
-ggplot() + geom_point(aes(x = test$radius_mean, y=test$perimeter_worst, color = test$diagnosis))
-print(ggplot() + geom_point(aes(x = test$texture_mean, y=test$perimeter_mean, color = !logistic_model_error)) + labs(title = "Logistic Regression", x="texture_mean", y="perimeter_mean", color="Correct Prediction"))
+train_control <- trainControl(method = "cv", number = 10, preProcOptions = list(thresh=0.99), classProbs=TRUE, summaryFunction = twoClassSummary)
+```
+
+Random Forrest
+```{r}
+#Random Forrest
+random_forrest <- train(diagnosis ~ ., data = training, method = "ranger", metric="ROC", trControl = train_control, preProcess=c("center", "scale"))
+rf_pred <- predict(random_forrest, test)
+rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+print(rf_confusion)
+```
+
+KNN
+```{r}
+#KNN
+knn <- train(diagnosis ~ ., data = training, method = "knn", metric="ROC", trControl = train_control)
+knn_pred <- predict(knn, test)
+knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+print(knn_confusion)
+```
+
+Radial Support Vector Machine
+```{r}
+#Radial Support Vector Machine
+svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric="ROC")
+svm_pred <- predict(svm, test)
+svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
+print(svm_confusion)
 ```
 
 ```{r}
-mean(logistic_model_error)
+#Logistic Regression
+logistic <- train(diagnosis ~ ., data = training, method = "glm", trControl = train_control, metric="ROC")
+logistic_pred <- predict(logistic, test)
+logistic_confusion <- confusionMatrix(logistic_pred, test$diagnosis, positive="M")
+print(logistic_confusion)
+logistic$finalModel
+ggplot(varImp(logistic))
+imp <- varImp(logistic)
+top10 <- rownames(data.frame(imp[1]))[1:10]
 ```
 
 ```{r}
-ggplot(data, aes(x = radius_mean, y = texture_worst, color=diagnosis)) + geom_point()
+logistic2 <- train(diagnosis ~ top10, data = training, method = "glm", trControl = train_control, metric="ROC")
+
 ```
 
 ```{r}
-```
-
-```{r}
-
 ```
