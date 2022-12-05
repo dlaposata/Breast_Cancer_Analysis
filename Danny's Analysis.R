@@ -12,6 +12,7 @@ library(discrim)
 library(glmnet)
 library(kableExtra)
 
+ggplot()
 
 ### Gathering Data
 
@@ -77,6 +78,8 @@ log.fit |>
   mutate(error = 1 - .estimate) |>
   pull(error)
 
+vip(log.fit)
+
 ### KNN Model
 
 cancer_10foldcv <- vfold_cv(train, v = 10)
@@ -103,7 +106,6 @@ knn_final_fit <- fit(knn_final, data = train)
 knn_final_fit |>
   augment(new_data = test) -> knn_test_res
   
-  
 knn_test_res |>
   conf_mat(truth = diagnosis, estimate = .pred_class) -> knn.cm
 
@@ -114,16 +116,18 @@ knn.test_res |>
   mutate(error = 1 - .estimate) |>
   pull(error)
 
-
 ### QDA Model
 
 qda_spec <- discrim_quad()
 
-qda_spec |>
-  fit(diagnosis ~ ., data = train) -> qda.fit
+qda_rec <- recipe(diagnosis ~ ., data = train)
 
-qda.fit$fit$prior
+workflow() |>
+  add_model(qda_spec) |>
+  add_recipe(qda_rec) -> qda.wf
 
+qda.wf |>
+  fit(data = train) -> qda.fit
 qda.fit |>
   augment(new_data = test) -> qda.test_res
 
@@ -172,9 +176,9 @@ lasso_final_fit <- fit(lasso_final, data = train)
 
 autoplot(lasso_final_fit)
 
-lasso_final_fit |>
+View(lasso_final_fit |>
   pull_workflow_fit() |>
-  tidy()
+  tidy())
 
 lasso_final_fit  |>
   augment(new_data = test) |>
