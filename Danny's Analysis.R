@@ -12,8 +12,6 @@ library(discrim)
 library(glmnet)
 library(kableExtra)
 
-ggplot()
-
 ### Gathering Data
 
 setwd("/Users/dlaposata/Documents/GitHub/project-7")
@@ -72,12 +70,6 @@ log.fit |>
 
 autoplot(log.cm, type = "heatmap")
 
-log.fit |>
-  augment(new_data = test) |>
-  accuracy(truth = diagnosis, estimate = .pred_class) |>
-  mutate(error = 1 - .estimate) |>
-  pull(error)
-
 vip(log.fit)
 
 ### KNN Model
@@ -111,7 +103,7 @@ knn_test_res |>
 
 autoplot(knn.cm, type = "heatmap")
 
-knn.test_res |>
+knn_test_res |>
   accuracy(truth = diagnosis, estimate = .pred_class) |>
   mutate(error = 1 - .estimate) |>
   pull(error)
@@ -128,6 +120,7 @@ workflow() |>
 
 qda.wf |>
   fit(data = train) -> qda.fit
+
 qda.fit |>
   augment(new_data = test) -> qda.test_res
 
@@ -174,11 +167,9 @@ show_best(lasso_tune, metric = "accuracy", n = 1)
 lasso_final <- finalize_workflow(lasso_wf, select_best(lasso_tune, metric = "accuracy"))
 lasso_final_fit <- fit(lasso_final, data = train)
 
-autoplot(lasso_final_fit)
-
-View(lasso_final_fit |>
+lasso_final_fit |>
   pull_workflow_fit() |>
-  tidy())
+  tidy()
 
 lasso_final_fit  |>
   augment(new_data = test) |>
@@ -208,6 +199,7 @@ rf_fit |>
   accuracy(truth = diagnosis, estimate = .pred_class)
 
 ### xGBoost Model
+
 boost_spec <- boost_tree(trees = 5000, tree_depth = 2, learn_rate = 0.01) |>
   set_engine("xgboost") |>
   set_mode("classification")
@@ -266,5 +258,3 @@ svm_linear_final_fit |>
       geom_tile(aes(radius_mean, concavity_mean, fill = .pred_class), alpha = .5) +
       geom_point(aes(radius_mean, concavity_mean, colour = diagnosis, shape = support_vector, size = support_vector), 
                                      data = train |> mutate(support_vector = 1:n() %in% svm_linear_final_fit_engine@alphaindex[[1]]))
-
-

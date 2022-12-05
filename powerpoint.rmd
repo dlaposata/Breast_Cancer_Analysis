@@ -1,45 +1,56 @@
 ---
-title: "Characterizing breast cancer cells"
+title: "Breast Cancer Diagnosis Classification Analysis"
 author: Austin Lackey, Ethan Powers and Danny Laposata
-date: Friday, November 9th, 2022
-output: powerpoint_presentation
+date: "December 9th, 2022"
+output: 
+  powerpoint_presentation: 
+    reference_doc: template.pptx
+  
 ---
-
-## The data
-
-- We have a dataset of 569 breast cancer cells, some of which are cancerous and some of which are benign.
-- We have 30 features for each cell, which are the measurements of the cell.
-- We have a binary variable, `diagnosis`, which is `M` for malignant and `B` for benign.
-- Add more stuff here...
-
-## Sample Output
-```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
-library(tidyverse)
-library(ggplot2)
-library(dplyr)
-library(caret)
-set.seed(420)
-data <- read.csv("breast_cancer_diagnostic_data.csv")
-data <- subset(data, select = -c(X))
-split <- sample(c(rep(0, 0.6 * nrow(data)), rep(1, 0.4 * nrow(data))))
-train <- data[split == 0, ]
-test <- data[split== 1, ]
-#write.csv(train,"training.csv", row.names = FALSE)
-#write.csv(test,"test.csv", row.names = FALSE)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
-# Exploratory Data Analysis
+## Background
+
+- Breast Cancer Diagnosis Data
+- Predict Diagnosis of Tumor based on features
+- Reduce Type II Error (False-Negatives)
+- Feature Selection
+
+## Data
+
+- Data collected from Kaggle
+- Response: Diagnosis (Benign/Malignant)
+- Mean, SE, and "Worst" measurements of 10 variables
+- Training/Test Split (60/40)
+
+
+## EDA
+
+- Different measurements of each variable are correlated
+
+- Relationship with Diagnosis visible for each measurement
+
+```{r, fig.height=3, fig.width=4, fig.align='right', fig.pos='H'}
+source("Danny's Analysis.R", echo = F, local = T)
+
+train[,c(1,2,12,22)] |>
+  ggpairs(title = "Correlation b/w Radius Measurements")
+```
 
 
 
 
-# Model Building
+## Classification Analysis: Austin
+
+## Classification Analysis: Danny
+
+## Regression Analysis: Ethan
 
 
 
-
-
-# Testing Accuracy
+## Model Assesments
 
 
 
