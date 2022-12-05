@@ -28,17 +28,22 @@ test <- data[split== 1, ]
 #write.csv(test,"test.csv", row.names = FALSE)
 ```
 
-```{r, echo=FALSE}
-#histogram
-print(ggplot(data, aes(x = diagnosis)) + geom_bar(aes(fill=diagnosis)) + labs(title = "Histogram of Diagnosis", x = "Diagnosis", y = "Count", fill="Diagnosis"))
-```
+# Exploratory Data Analysis
 
-## Plot
-```{r, echo=FALSE}
-#scatterplot
-print(ggplot(data, aes(x = radius_mean, y = texture_mean, color = diagnosis)) + geom_point() + 
-    labs(title = "Scatterplot of Radius Mean vs Texture Mean", x = "Radius Mean", y = "Texture Mean", color="Diagnosis"))
-```
+
+
+
+# Model Building
+
+
+
+
+
+# Testing Accuracy
+
+
+
+
 
 ## Works Cited
 

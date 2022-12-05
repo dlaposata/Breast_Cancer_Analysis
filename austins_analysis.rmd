@@ -63,6 +63,7 @@ random_forrest <- train(diagnosis ~ ., data = training, method = "ranger", metri
 rf_pred <- predict(random_forrest, test)
 rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
 print(rf_confusion)
+
 ```
 
 KNN
@@ -72,6 +73,9 @@ knn <- train(diagnosis ~ ., data = training, method = "knn", metric="ROC", trCon
 knn_pred <- predict(knn, test)
 knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
 print(knn_confusion)
+ggplot(varImp(knn))
+varsKNN <- rownames(data.frame(varImp(knn)[1]))[1:10]
+```
 ```
 
 Radial Support Vector Machine
@@ -81,6 +85,8 @@ svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = t
 svm_pred <- predict(svm, test)
 svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
 print(svm_confusion)
+ggplot(varImp(svm))
+varsSVM <- rownames(data.frame(varImp(svm)[1]))[1:10]
 ```
 
 ```{r}
@@ -91,12 +97,17 @@ logistic_confusion <- confusionMatrix(logistic_pred, test$diagnosis, positive="M
 print(logistic_confusion)
 logistic$finalModel
 ggplot(varImp(logistic))
-imp <- varImp(logistic)
-top10 <- rownames(data.frame(imp[1]))[1:10]
+varsLOGISTIC <- rownames(data.frame(varImp(logistic)[1]))[1:10]
 ```
 
 ```{r}
-logistic2 <- train(diagnosis ~ top10, data = training, method = "glm", trControl = train_control, metric="ROC")
+logistic2 <- train(diagnosis ~ area_mean + area_worst + concave.points_mean + texture_mean + radius_worst + concavity_se + fractal_dimension_se, data = training, method = "glm", trControl = train_control, metric="ROC")
+logistic2_pred <- predict(logistic2, test)
+logistic2_confusion <- confusionMatrix(logistic2_pred, test$diagnosis, positive="M")
+print(logistic2_confusion)
+```
+
+```{r}
 
 ```
 
