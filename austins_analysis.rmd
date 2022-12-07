@@ -1,5 +1,5 @@
 # Analysis of the data by Austin
-```{r}
+```{r package_load}
 # Import packages
 library(tidyverse)
 library(ggplot2)
@@ -7,9 +7,11 @@ library(GGally)
 library(knitr)
 library(boot)
 library(caret)
+library(randomForest)
+library(e1071)
 ```
 
-```{r}
+```{r data_load}
 # Load the data
 data <- read.csv("breast_cancer_diagnostic_data.csv")
 training <- read.csv("training.csv")
@@ -33,16 +35,22 @@ print(paste("There are", length(data), "variables available"))
 print(names(data))
 ```
 
-```{r}
+```{r ggpairs}
 # Looking for correlations between variables
 g1 <- ggpairs(data, columns = 1:10)
 g2 <- ggpairs(data, columns = c(1, 11:20))
 g3 <- ggpairs(data, columns = c(1, 21:31))
 ```
 
+```{r ggpairs_plot}
+# print(g1)
+# print(g2)
+# print(g3)
+```
+
 Variables to note: radius_mean, perimeter_worst, area_worst, concave.points_worst
 
-```{r}
+```{r data_cleaning}
 # Setting up a binary column for diagnosis
 dataBinary <- data
 trainingBinary <- training
@@ -50,65 +58,145 @@ testBinary <- test
 dataBinary$diagnosis_binary <- ifelse(data$diagnosis == "M", 1, 0)
 trainingBinary$diagnosis_binary <- ifelse(training$diagnosis == "M", 1, 0)
 testBinary$diagnosis_binary <- ifelse(test$diagnosis == "M", 1, 0)
+testBinary <- subset(testBinary, select = -diagnosis)
+trainingBinary <- subset(trainingBinary, select = -diagnosis)
 ```
 
-```{r}
+Logistic Regression
+
+```{r logistic_regression}
+# Logistic Regression without cross validation
+logistic_regression <- glm(diagnosis_binary ~ ., data = trainingBinary, family = binomial)
+logistic_pred <- predict(logistic_regression, testBinary, type="response")
+logistic_pred <- ifelse(logistic_pred > 0.5, "M", "B")
+logistic_pred <- data.frame(logistic_pred)$logistic_pred
+logistic_confusion <- confusionMatrix(logistic_pred, as.character(test$diagnosis), positive = "M")
+```
+
+```{r train_setup}
 train_control <- trainControl(method = "cv", number = 10, preProcOptions = list(thresh=0.99), classProbs=TRUE, summaryFunction = twoClassSummary)
 ```
 
 Random Forrest
-```{r}
+```{r random_forrest}
 #Random Forrest
 random_forrest <- train(diagnosis ~ ., data = training, method = "ranger", metric="ROC", trControl = train_control, preProcess=c("center", "scale"))
 rf_pred <- predict(random_forrest, test)
 rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
 print(rf_confusion)
+```
 
+```{r random_forrest_plot}
+#Plotting the false positives and true positives for the random forest model
+false_pred <- !(test$diagnosis != rf_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (rf_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "Random Forrest Model False Negatives")
+```
+
+Random Forrest 2
+
+```{r random_forrest_2}
+x <- seq(1, 100, 1)
+tuning_grid <- expand.grid(trees = x, rmse=NA)
+for (i in seq_len(nrow(tuning_grid))) {
+    # rf_fit <- train(diagnosis ~ ., 
+    #     method = "ranger",
+    #     metric="ROC",
+    #     trControl = train_control,
+    #     data = training, 
+    #     num.trees = tuning_grid$trees[i])
+    rf_fit <- randomForest(diagnosis ~ ., data = training, ntree = tuning_grid$trees[i])
+    rf_pred <- predict(rf_fit, test)
+    rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+    tuning_grid$rmse[i] <- tibble(rf_confusion$table)[[2,1]][1]/sum(tibble(rf_confusion$table))
+}
+```
+
+```{r random_forrest_2_plot}
+ggplot() + geom_line(aes(x=x, y=tuning_grid$rmse))
 ```
 
 KNN
-```{r}
+```{r knn}
 #KNN
 knn <- train(diagnosis ~ ., data = training, method = "knn", metric="ROC", trControl = train_control)
 knn_pred <- predict(knn, test)
 knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
 print(knn_confusion)
-ggplot(varImp(knn))
 varsKNN <- rownames(data.frame(varImp(knn)[1]))[1:10]
 ```
+
+```{r knn_plot}
+print(ggplot(varImp(knn)) + labs(title = "KNN Variable Importance"))
 ```
 
+```{r knn_plot2}
+#Plotting the false positives and true positives for the knn model
+false_pred <- !(test$diagnosis != knn_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (knn_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "KNN Model False Negatives")
+```
+
+
 Radial Support Vector Machine
-```{r}
+```{r svm}
 #Radial Support Vector Machine
 svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric="ROC")
 svm_pred <- predict(svm, test)
 svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
 print(svm_confusion)
-ggplot(varImp(svm))
 varsSVM <- rownames(data.frame(varImp(svm)[1]))[1:10]
 ```
 
-```{r}
+```{r svm_plot}
+print(ggplot(varImp(svm)))
+```
+
+```{r svm_plot}
+#Plotting the false positives and true positives for the logistic regression model
+false_pred <- !(test$diagnosis != svm_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (svm_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "SVM Model False Negatives")
+```
+
+
+Logistic Regression
+```{r logistic}
 #Logistic Regression
 logistic <- train(diagnosis ~ ., data = training, method = "glm", trControl = train_control, metric="ROC")
 logistic_pred <- predict(logistic, test)
 logistic_confusion <- confusionMatrix(logistic_pred, test$diagnosis, positive="M")
 print(logistic_confusion)
 logistic$finalModel
-ggplot(varImp(logistic))
 varsLOGISTIC <- rownames(data.frame(varImp(logistic)[1]))[1:10]
 ```
 
 ```{r}
-logistic2 <- train(diagnosis ~ area_mean + area_worst + concave.points_mean + texture_mean + radius_worst + concavity_se + fractal_dimension_se, data = training, method = "glm", trControl = train_control, metric="ROC")
+#Plotting the false positives and true positives for the logistic regression model
+false_pred <- !(test$diagnosis != logistic_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (logistic_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "Logistic Regression Reduced Model False Negatives")
+```
+
+```{r logistic_plot}
+print(ggplot(varImp(logistic)) + labs(title = "Logistic Variable Importance"))
+```
+
+```{r logistic_2}
+logistic2 <- train(diagnosis ~ area_mean + area_worst + concave.points_mean + texture_mean + radius_worst + concavity_se + fractal_dimension_se + concavity_worst + concave.points_worst, data = training, method = "glm", trControl = train_control, metric="ROC")
 logistic2_pred <- predict(logistic2, test)
 logistic2_confusion <- confusionMatrix(logistic2_pred, test$diagnosis, positive="M")
 print(logistic2_confusion)
 ```
 
 ```{r}
+#Plotting the false positives and true positives for the logistic regression 2
+false_pred <- !(test$diagnosis != logistic2_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (logistic2_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "Logistic Regression Reduced Model False Negatives")
+```
 
+```{r logistic_2_plot}
 ```
 
 ```{r}

@@ -1,0 +1,15 @@
+---
+title: "Breast Cancer Diagnosis Classification Analysis"
+author: Austin Lackey, Ethan Powers and Danny Laposata
+date: "December 9th, 2022"
+output: 
+  powerpoint_presentation: 
+    reference_doc: template.pptx
+  
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+# Breast Cancer Diagnosis Classification Analysis
