@@ -2,9 +2,16 @@ library(tidyverse)
 library(GGally)
 library(ggplot2)
 
-setwd("/Users/dlaposata/Documents/GitHub/project-7")
+
+#setwd("/Users/dlaposata/Documents/GitHub/project-7")
+data <- read.csv("breast_cancer_diagnostic_data.csv")
 train <- read.csv("training.csv")
 test <- read.csv("test.csv")
+
+dataE <- data
+corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
+#head(corr_df)
+ggpairs(corr_df)
 
 train |>
   select(-id) -> train
