@@ -14,10 +14,13 @@ output: html_document
 #install.packages("glmnet")
 #install.packages("pls")
 #install.packages("forecast")
+#install.packages("plyr")
+#install.packages("readr")
+#install.packages("repr")
 ```
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
 
-setwd("~/Desktop/DSCI/DSCI445/Project")
+#setwd("~/Desktop/DSCI/DSCI445/Project")
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -28,269 +31,181 @@ library(tidymodels)
 library(glmnet)
 library(pls)
 library(forecast)
+library(GGally)
+library(plyr)
+library(readr)
+library(repr)
 
 set.seed(420)
 
 dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
-dataTot <- dataTemp %>% select_if(~ !any(is.na(.)))
-testTot <- read.csv("test.csv")
-trainingTot <- read.csv("training.csv")
+datatemp2 <- dataTemp %>% select_if(~ !any(is.na(.)))
+dataTot <- datatemp2[,!names(datatemp2) %in% c("id")]
+
+testtemp <- read.csv("test.csv")
+testTot <- testtemp[,!names(testtemp) %in% c("id")]
+
+traintemp <- read.csv("training.csv")
+trainTot <- traintemp[,!names(traintemp) %in% c("id")]
+
 
 ```
 
-#Dividing the data, test, and training data between malignant and benign
 ```{r}
-#Malignant
-tempM <- dataTot[dataTot$diagnosis == 'M', ]
-dataM <- tempM[, !names(tempM) %in% c("diagnosis")]
-splitM <- sample(c(rep(0, 0.6 * nrow(dataM)), rep(1, 0.4 * nrow(dataM))))
-trainingM <- dataM[splitM == 0, ]
-testM <- dataM[splitM == 1, ]
-
-#Benign
-tempB <- dataTot[dataTot$diagnosis == 'B', ]
-dataB <- tempB[, !names(tempB) %in% c("diagnosis")]
-splitB <- sample(c(rep(0, 0.6 * nrow(dataB)), rep(1, 0.4 * nrow(dataB))))
-trainingB <- dataB[splitB == 0, ]
-testB <- dataB[splitB == 1, ]
+corr_df <- dataTot[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
+#head(corr_df)
+ggpairs(corr_df)
 ```
 
+--------------------------------------------------------------------------------
 
+## area_mean
+# Logestic regression
 
-#Predicting the mean of the radius of the cancer cells between both Malignant & Benign combined and seperate
 ```{r}
-#The prediction on the Total testing data set
-reg_trainTot <- lm(radius_mean~., data = trainingTot)
-pred_testTot <- predict(reg_trainTot, newdata = testTot)
-error_testTot <- mean((testTot[, "radius_mean"] - pred_testTot)^2)
-
-#The prediction on the Malignant testing data set
-reg_trainM <- lm(radius_mean~., data = trainingM)
-pred_testM <- predict(reg_trainM, newdata = testM)
-error_testM <- mean((testM[, "radius_mean"] - pred_testM)^2)
-
-#The prediction on the Benign testing data set
-reg_trainB <- lm(radius_mean~., data = trainingB)
-pred_testB <- predict(reg_trainB, newdata = testB)
-error_testB <- mean((testB[, "radius_mean"] - pred_testB)^2)
-
-print("Total test set error:")
-print(error_testTot)
-print('Malignant test set error:')
-print(error_testM)
-print('Benign test set error:')
-print(error_testB)
-```
-
-
-
-#ridge regression
-```{r}
-#Total
-training_matxTot <- model.matrix(radius_mean ~ . , data = trainingTot)[, -1 ]
-test_matxTot <- model.matrix(radius_mean ~ . , data = testTot)[,-1]
-
-cv_finalTot = cv.glmnet(training_matxTot , trainingTot$radius_mean, nfolds = 10, alpha=0)
-lamTot = cv_finalTot$lambda.min
-
-ridge_regTot = glmnet(training_matxTot , trainingTot$radius_mean, nfolds = 10, alpha = 0)
-ridge_preTot = predict(ridge_regTot, s=lamTot, newx = test_matxTot)
-error_test_ridTot <- mean((ridge_preTot - testTot$radius_mean)^2)
-```
-```{r}
-#Malignant
-training_matxM <- model.matrix(radius_mean ~ . , data = trainingM)[, -1 ]
-test_matxM <- model.matrix(radius_mean ~ . , data = testM)[,-1]
-
-cv_finalM = cv.glmnet(training_matxM , trainingM$radius_mean, nfolds = 10, alpha=0)
-lamM = cv_finalM$lambda.min
-
-ridge_regM = glmnet(training_matxM , trainingM$radius_mean, nfolds = 10, alpha = 0)
-ridge_preM = predict(ridge_regM, s=lamM, newx = test_matxM)
-error_test_ridM <- mean((ridge_preM - testM$radius_mean)^2)
-```
-```{r}
-#Benign
-training_matxB <- model.matrix(radius_mean ~ . , data = trainingB)[, -1 ]
-test_matxB <- model.matrix(radius_mean ~ . , data = testB)[,-1]
-
-cv_finalB = cv.glmnet(training_matxB , trainingB$radius_mean, nfolds = 10, alpha=0)
-lamB = cv_finalB$lambda.min
-
-ridge_regB = glmnet(training_matxB , trainingB$radius_mean, nfolds = 10, alpha = 0)
-ridge_preB = predict(ridge_regB, s=lamB, newx = test_matxB)
-error_test_ridB <- mean((ridge_preB - testB$radius_mean)^2)
-```
-```{r}
-print("Total")
-print(error_test_ridTot)
-print("Malignant")
-print(error_test_ridM)
-print("Benign")
-print(error_test_ridB)
-```
-
-
-
-#lasso
-```{r}
-#Total
-lasso_setTot = glmnet(training_matxTot, trainingTot$radius_mean, nfolds = 10, alpha=1)
-lasso_preTot = predict(lasso_setTot , s= lamTot, newx=test_matxTot)
-error_test_lassoTot <- mean((lasso_preTot - testTot$radius_mean)^2)
-```
-```{r}
-#Maligant
-lasso_setM = glmnet(training_matxM, trainingM$radius_mean, nfolds = 10, alpha=1)
-lasso_preM = predict(lasso_setM , s= lamM, newx=test_matxM)
-error_test_lassoM <- mean((lasso_preM - testM$radius_mean)^2)
-```
-```{r}
-#Benign
-lasso_setB = glmnet(training_matxB, trainingB$radius_mean, nfolds = 10, alpha=1)
-lasso_preB = predict(lasso_setB , s= lamB, newx=test_matxB)
-error_test_lassoB <- mean((lasso_preB - testB$radius_mean)^2)
-```
-```{r}
-print("Total")
-print(error_test_lassoTot)
-print("Malignant")
-print(error_test_lassoM)
-print("Benign")
-print(error_test_lassoB)
-```
-
-
-
-#PCR
-```{r}
-#Total
-trainingTot2 = dataTot %>% sample_frac(0.6)
-testTot2 = dataTot %>% setdiff(trainingTot2)
-pcr_fitTot2 = pcr(radius_mean ~ ., data = trainingTot2 , scale = TRUE, validation = "CV")
-summary(pcr_fitTot2)
-```
-```{r}
-#Total cont M is 31
-x_trainingTot = model.matrix(radius_mean~., trainingTot2)[,-1]
-x_testTot = model.matrix(radius_mean~., testTot2)[,-1]
-
-y_trainingTot = trainingTot2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
-
-y_testTot = testTot2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
-
-pcr_predTot = predict(pcr_fitTot2, x_testTot, ncomp=31)
-error_test_pcrTot <- mean((pcr_predTot-y_testTot)^2)
+#Test
+am_lm <- lm(area_mean ~ ., data = trainTot)
+pred_amtest <- predict(am_lm, testTot)
+amtest_log <- postResample(pred_amtest, testTot$area_mean)
+amtest_log
+#summary(am_lm)
 ```
 
 ```{r}
-#Malignant
-trainingM2 = dataM %>% sample_frac(0.6)
-testM2 = dataM %>% setdiff(trainingM2)
-pcr_fitM2 = pcr(radius_mean ~ ., data = trainingM2 , scale = TRUE, validation = "CV")
-summary(pcr_fitM2)
-```
-```{r}
-#Maligant cont M is 30
-x_trainingM = model.matrix(radius_mean~., trainingM2)[,-1]
-x_testM = model.matrix(radius_mean~., testM2)[,-1]
-
-y_trainingM = trainingM2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
-
-y_testM = testM2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
-
-pcr_predM = predict(pcr_fitM2, x_testM, ncomp=30)
-error_test_pcrM <- mean((pcr_predM-y_testM)^2)
+#Train
+pred_amtrain<- predict(am_lm, trainTot)
+amtrain_log <- postResample(pred_amtrain, trainTot$area_mean)
+amtrain_log
 ```
 
+# ridge regression
 ```{r}
-#Belign
-trainingB2 = dataB %>% sample_frac(0.6)
-testB2 = dataB %>% setdiff(trainingB2)
-pcr_fitB2 = pcr(radius_mean ~ ., data = trainingB2 , scale = TRUE, validation = "CV")
-summary(pcr_fitB2)
-```
-```{r}
-#Belign cont M is 29
-x_trainingB = model.matrix(radius_mean~., trainingB2)[,-1]
-x_testB = model.matrix(radius_mean~., testB2)[,-1]
+dummy <- dummyVars(area_mean~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$area_mean
 
-y_trainingB = trainingB2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$area_mean
 
-y_testB = testB2 %>%
-  select(radius_mean) %>%
-  unlist() %>%
-  as.numeric()
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
 
-pcr_predB = predict(pcr_fitB2, x_testB, ncomp=29)
-error_test_pcrB <- mean((pcr_predB-y_testB)^2)
-```
-```{r}
-print("Total")
-print(error_test_pcrTot)
-print("Malignant")
-print(error_test_pcrM)
-print("Benign")
-print(error_test_pcrB)
-```
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
 
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square)
+  
+}
 
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+amr_train <- eval_results(y_train, predictions_train, trainTot)
 
-#PLS
-```{r}
-#total
-pls_fitTot = plsr(radius_mean~., data = trainingTot2, scale = TRUE, validation = "CV")
-summary(pls_fitTot)
-```
-```{r}
-#Total cont M is 30
-pls_predTot = predict(pls_fitTot, x_testTot, ncomp = 30)
-error_test_plsTot <- mean((pls_predTot - y_testTot)^2)
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+amr_test <- eval_results(y_test, predictions_test, testTot)
+
+print(amr_train)
+print(amr_test)
 ```
 
-#Malignant
+# lasso
 ```{r}
-pls_fitM = plsr(radius_mean~., data = trainingM2, scale = TRUE, validation = "CV")
-summary(pls_fitM)
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+aml_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+aml_test <- eval_results(y_test, predictions_test, testTot)
 ```
+
+--------------------------------------------------------------------------------
+
+## Area_worst
+# Logestic regression
+
 ```{r}
-#Malignant cont M is 30
-pls_predM = predict(pls_fitM, x_testM, ncomp = 30)
-error_test_plsM <- mean((pls_predM - y_testM)^2)
+#Test
+aw_lm <- lm(area_worst ~ ., data = trainTot)
+pred_awtest <- predict(aw_lm, testTot)
+awtest_log <- postResample(pred_awtest, testTot$area_worst)
+awtest_log
+#summary(am_lm)
 ```
 
 ```{r}
-#Benign
-pls_fitB = plsr(radius_mean~., data = trainingB2, scale = TRUE, validation = "CV")
-summary(pls_fitB)
+#Train
+pred_awtrain<- predict(aw_lm, trainTot)
+awtrain_log <- postResample(pred_awtrain, trainTot$area_worst)
+awtrain_log
 ```
 
+# ridge regression
 ```{r}
-#Benign cont M is 26
-pls_predB = predict(pls_fitB, x_testB, ncomp = 26)
-error_test_plsB <- mean((pls_predB - y_testB)^2)
+dummy <- dummyVars(area_worst~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$area_worst
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$area_worst
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+awr_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+awr_test <- eval_results(y_test, predictions_test, testTot)
+
+print(awr_train)
+print(awr_test)
 ```
+
+# lasso
 ```{r}
-print("Total")
-print(error_test_plsTot)
-print("Malignant")
-print(error_test_plsM)
-print("Benign")
-print(error_test_plsB)
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+awl_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+awl_test <- eval_results(y_test, predictions_test, testTot)
 ```
 
