@@ -14,7 +14,6 @@ library(kableExtra)
 
 ### Gathering Data
 
-setwd("/Users/dlaposata/Documents/GitHub/project-7")
 train <- read.csv("training.csv")
 test <- read.csv("test.csv")
 
