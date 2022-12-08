@@ -1,0 +1,88 @@
+---
+title: "Breast Cancer Diagnosis Classification Analysis"
+author: Austin Lackey, Ethan Powers and Danny Laposata
+date: "December 9th, 2022"
+output: 
+  powerpoint_presentation: 
+    reference_doc: template.pptx
+  
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(leaps)
+library(caTools)
+library(tidymodels)
+library(glmnet)
+library(pls)
+library(forecast)
+library(GGally)
+
+set.seed(420)
+
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+data <- dataTemp %>% select_if(~ !any(is.na(.)))
+test <- read.csv("test.csv")
+training <- read.csv("training.csv")
+```
+
+## Background
+
+- Breast Cancer Diagnosis Data
+- Predict Diagnosis of Tumor based on features
+- Reduce Type II Error (False-Negatives)
+- Feature Selection
+
+## Data
+
+- Data collected from "Breast Cancer Wisconsin (Diagnostic) Data Set" from Kaggle
+- Response: Diagnosis (Benign/Malignant)
+- Predictors: 10 variables divided between  Mean, SE, and "Worst"
+- Training/Test Split (60/40)
+
+
+## EDA
+
+- Different measurements of each variable are correlated
+
+- Relationship with Diagnosis visible for each measurement
+
+```{r, fig.height=3, fig.width=4, fig.align='right', fig.pos='H'}
+#source("Danny's Analysis.R", echo = F, local = T)
+
+#train[,c(1,2,12,22)] |>
+#  ggpairs(title = "Correlation b/w Radius Measurements")
+```
+
+
+
+
+## Classification Analysis: Austin
+
+## Classification Analysis: Danny
+
+## Regression Analysis: Ethan
+```{r}
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+dataTot <- dataTemp %>% select_if(~ !any(is.na(.)))
+testTot <- read.csv("test.csv")
+trainingTot <- read.csv("training.csv")
+
+dataE <- data
+corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
+ggpairs(corr_df)
+```
+-Test
+
+## Model Assesments
+
+
+
+
+
+## Works Cited
+
+- Breast Cancer Wisconsin (Diagnostic) Data Set: https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data?datasetId=180&sortBy=voteCount
