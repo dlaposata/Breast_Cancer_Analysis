@@ -36,11 +36,10 @@ Different measurements of each variable are correlated
 
 Relationship with Diagnosis visible for each measurement
 
-```{r, fig.height=8, fig.width=12}
-source("Danny's Analysis.R", echo = F, local = T)
+```{r, fig.height=6, fig.width=8}
+source("PPTX-code.R", echo = F, local = T)
 
-train[,c(1,2,12,22)] |>
-  ggpairs(title = "Correlation b/w Radius Measurements")
+measure_pairs
 ```
 
 
