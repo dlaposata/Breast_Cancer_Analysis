@@ -48,7 +48,7 @@ testTot <- testtemp[,!names(testtemp) %in% c("id")]
 traintemp <- read.csv("training.csv")
 trainTot <- traintemp[,!names(traintemp) %in% c("id")]
 
-
+head(dataTot)
 ```
 
 ```{r}
@@ -63,19 +63,18 @@ ggpairs(corr_df)
 # Logestic regression
 
 ```{r}
-#Test
+#Train
 am_lm <- lm(area_mean ~ ., data = trainTot)
+pred_amtrain<- predict(am_lm, trainTot)
+amtrain_log <- postResample(pred_amtrain, trainTot$area_mean)
+amtrain_log
+```
+```{r}
+#Test
 pred_amtest <- predict(am_lm, testTot)
 amtest_log <- postResample(pred_amtest, testTot$area_mean)
 amtest_log
 #summary(am_lm)
-```
-
-```{r}
-#Train
-pred_amtrain<- predict(am_lm, trainTot)
-amtrain_log <- postResample(pred_amtrain, trainTot$area_mean)
-amtrain_log
 ```
 
 # ridge regression
@@ -102,7 +101,7 @@ eval_results <- function(true, predicted, df) {
   # Model performance metrics
 data.frame(
   RMSE = RMSE,
-  Rsquare = R_square)
+  Rsquared = R_square)
   
 }
 
@@ -131,6 +130,20 @@ aml_train <- eval_results(y_train, predictions_train, trainTot)
 
 predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
 aml_test <- eval_results(y_test, predictions_test, testTot)
+
+print(aml_train)
+print(aml_test)
+```
+
+```{r}
+as_data_frame(rbind(amtrain_log,
+      amr_train,
+      aml_train,
+      amtest_log,
+      amr_test,
+      aml_test)) %>%
+    mutate(model = c('Linear Train Error',  'Ridge Train Error', 'Lasso Train Error',  'Linear Test Error','Ridge Test Error',  'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
 ```
 
 --------------------------------------------------------------------------------
@@ -178,7 +191,7 @@ eval_results <- function(true, predicted, df) {
   # Model performance metrics
 data.frame(
   RMSE = RMSE,
-  Rsquare = R_square)
+  Rsquared = R_square)
   
 }
 
@@ -207,5 +220,170 @@ awl_train <- eval_results(y_train, predictions_train, trainTot)
 
 predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
 awl_test <- eval_results(y_test, predictions_test, testTot)
+
+print(awl_train)
+print(awl_test)
 ```
 
+```{r}
+as_data_frame(rbind(awtrain_log,
+      awr_train,
+      awl_train,
+      awtest_log,
+      awr_test,
+      awl_test)) %>%
+    mutate(model = c('Linear Train Error',  'Ridge Train Error', 'Lasso Train Error',  'Linear Test Error','Ridge Test Error',  'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+```
+--------------------------------------------------------------------------------
+## concave.points_mean
+
+```{r}
+#Train
+cvptsm_lm <- lm(concave.points_mean ~ ., data = trainTot)
+pred_cvptsm_train<- predict(cvptsm_lm, trainTot)
+cvptsm_train_log <- postResample(pred_cvptsm_train, trainTot$concave.points_mean)
+cvptsm_train_log
+```
+```{r}
+#Test
+pred_cvptsm_test <- predict(cvptsm_lm, testTot)
+cvptsm_test_log <- postResample(pred_cvptsm_test, testTot$concave.points_mean)
+cvptsm_test_log
+#summary(am_lm)
+```
+
+# ridge regression
+```{r}
+dummy <- dummyVars(concave.points_mean~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$concave.points_mean
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$concave.points_mean
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+cvptsm_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+cvptsm_test <- eval_results(y_test, predictions_test, testTot)
+
+print(cvptsm_train)
+print(cvptsm_test)
+```
+
+# lasso
+```{r}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+cvptsm_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+cvptsm_test <- eval_results(y_test, predictions_test, testTot)
+
+print(cvptsm_train)
+print(cvptsm_test)
+```
+
+--------------------------------------------------------------------------------
+
+## Radius Worst
+
+```{r}
+#Train
+rw_lm <- lm(radius_worst ~ ., data = trainTot)
+pred_rw_train<- predict(rw_lm, trainTot)
+rw_train_log <- postResample(pred_rw_train, trainTot$radius_worst)
+rw_train_log
+```
+```{r}
+#Test
+pred_rw_test <- predict(rw_lm, testTot)
+rw_test_log <- postResample(pred_rw_test, testTot$radius_worst)
+rw_test_log
+#summary(am_lm)
+```
+
+# ridge regression
+```{r}
+dummy <- dummyVars(radius_worst~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$radius_worst
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$radius_worst
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+rw_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+rw_test <- eval_results(y_test, predictions_test, testTot)
+
+print(rw_train)
+print(rw_test)
+```
+
+# lasso
+```{r}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+rw_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+rw_test <- eval_results(y_test, predictions_test, testTot)
+
+print(rw_train)
+print(rw_test)
+```
