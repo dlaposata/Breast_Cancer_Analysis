@@ -50,4 +50,4 @@ train[,c(1,22:31)] |>
   ggpairs()
 
 train[,c(1,2,12,22)] |>
-  ggpairs()
+  ggpairs() -> measure_pairs
