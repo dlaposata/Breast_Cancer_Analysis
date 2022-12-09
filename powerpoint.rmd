@@ -36,7 +36,6 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width 
 ggplot(train) +
   geom_point(aes(x = concavity_mean, y = radius_mean, col = diagnosis))+
   labs(x = "Concavity Mean", y = "Radius Mean", title = "Severity of Concavity vs. Radius of Tumor")
-
 ```
 
 
@@ -264,7 +263,7 @@ vip(rf_fit)
 
 
 
-## Model Assesments
+## Model Assessments
 
 
 
