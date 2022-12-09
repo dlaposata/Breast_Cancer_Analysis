@@ -97,6 +97,21 @@ train[,c(1,2,12,22)] |>
   ggpairs()
 ```
 
+## Diagnosis Distribution
+
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# There are more benign tumors than malignant tumors
+# histogram of diagnosis
+edaData <- read_csv("breast_cancer_diagnostic_data.csv")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(edaData) +
+  geom_bar(aes(x = diagnosis), fill = "#c82798") +
+  labs(x = "Diagnosis", y = "Count", title = "Count of Diagnosis") +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30))
+```
+
 
 ## Classification Analysis: Austin
 
@@ -228,6 +243,8 @@ ggplot(data.frame(rf_confusion$table), aes(x = Prediction, y = Reference, fill =
 - $n=$ `r rf1_ntree` trees
 - Type II Error: `r rf_tte`
 - Accuracy: `r rf_confusion$overall[1]`
+
+# Support Vector Machines
 
 ## Radial Support Vector Machine
 
@@ -555,7 +572,7 @@ ggpairs(corr_df)
 
 ## area_mean
 
-![Best Model was Ridge Regression](area_mean.png){
+![Best Model was Ridge Regression](area_mean.png)
 
 
 ## area_worst
@@ -576,7 +593,11 @@ ggpairs(corr_df)
 - High prediction accuracy
 - Successful with multiple methods of reducing Type II Error
 
-## Potential Improvements 
+## Potential Improvements
+
+- More data points (more observations)
+- More features (more variables)
+- More proccessing power
 
 ## Works Cited
 
