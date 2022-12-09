@@ -8,15 +8,27 @@ output:
   
 ---
 ```{r setup, include=FALSE}
+# Import packages
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(knitr)
+library(boot)
+library(caret)
+library(randomForest)
+library(e1071)
+library(class)
+set.seed(420)
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width = 14, fig.height = 8)
 ```
 
 ## Background
 
+- Many people are diagnosed with breast cancer each year
 - Breast Cancer Diagnosis Data
-- Predict Diagnosis of Tumor based on features
-- Reduce Type II Error (False-Negatives)
-- Feature Selection
+- Predict Diagnosis of Tumor based on features (Malignant or Benign)
+- *Modivation:* Reduce Type II Error (False-Negatives)
+  - Feature and Model Selection
 
 ## Data
 
@@ -33,10 +45,9 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width 
 ## EDA
 
 ```{r}
-ggplot(train) +
-  geom_point(aes(x = concavity_mean, y = radius_mean, col = diagnosis))+
-  labs(x = "Concavity Mean", y = "Radius Mean", title = "Severity of Concavity vs. Radius of Tumor")
-
+# ggplot(train) +
+#   geom_point(aes(x = concavity_mean, y = radius_mean, col = diagnosis))+
+#   labs(x = "Concavity Mean", y = "Radius Mean", title = "Severity of Concavity vs. Radius of Tumor")
 ```
 
 
@@ -45,6 +56,213 @@ Different measurements of each variable are correlated
 Relationship with Diagnosis visible for each measurement
 
 ## Classification Analysis: Austin
+
+```{r load_data, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# Load the data
+set.seed(420)
+data <- read.csv("breast_cancer_diagnostic_data.csv") # Full Data
+training <- read.csv("training.csv") # Training Data
+test <- read.csv("test.csv")  # Test Data
+# Data Cleaning
+data <- data[,-1] # Remove ID column
+test <- test[,-1] # Remove ID column
+training <- training[,-1] # Remove ID column
+# Convert diagnosis to factor
+data$diagnosis <- as.factor(data$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+training$diagnosis <- as.factor(training$diagnosis)
+```
+
+
+# Models
+
+```{r train_setup, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+train_control <- trainControl(method = "repeatedcv", summaryFunction = defaultSummary, classProbs = TRUE, number = 10, repeats = 10)
+```
+
+# KNN Model
+
+## Tuning KNN
+
+```{r knn_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error_knn <- data.frame(k = seq(1, 100, 1), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error_knn)) {
+    knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = type_two_error_knn$k[i]))
+    knn_pred <- predict(knn, test)
+    knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+    type_two_error_knn$typetwoerror[i] <- knn_confusion$table[1, 2]/sum(knn_confusion$table)
+    type_two_error_knn$error[i] <- (knn_confusion$table[1, 2] + knn_confusion$table[2, 1])/sum(knn_confusion$table)
+}
+print(which.min(type_two_error_knn$typetwoerror))
+knn1_k <- which.min(type_two_error_knn$typetwoerror)
+knn_tte <- min(type_two_error_knn$typetwoerror)
+```
+
+```{r knn_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$error), size=1) + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$typetwoerror), size=1.5, color="#c82798") + labs(title = "KNN Type I and Overall Error", x = "K", y = "Error")
+```
+
+## Tuned KNN
+
+```{r tuned_knn, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(420)
+tuned_knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = which.min(type_two_error_knn$typetwoerror)))
+knn_pred <- predict(tuned_knn, test)
+knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+```
+
+```{r tuned_knn_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(knn_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "KNN Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+## Tuned KNN Parameters
+
+- Using all features
+- 10-fold cross validation repeated 10 times
+- $k=$ `r knn1_k` neighbors
+- Type II Error: `r knn_tte`
+- Accuracy: `r knn_confusion$overall[1]`
+
+
+# Random Forrest
+
+## Tuning Random Forrest
+
+```{r rf_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error_rf <- data.frame(ntree = seq(1, 100, 10), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error_rf)) {
+    rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "Accuracy", ntree = type_two_error_rf$ntree[i])
+    rf_pred <- predict(rf, test)
+    rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+    type_two_error_rf$typetwoerror[i] <- rf_confusion$table[1, 2]/sum(rf_confusion$table)
+    type_two_error_rf$error[i] <- (rf_confusion$table[1, 2] + rf_confusion$table[2, 1])/sum(rf_confusion$table)
+}
+print(which.min(type_two_error_rf$typetwoerror))
+rf1_ntree <- type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)]
+rf_tte <- min(type_two_error_rf$typetwoerror)
+```
+
+```{r rf_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$error), size=1) + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$typetwoerror), size=1.5, color="#c82798") + labs(title = "Random Forrest Type I and Overall Error", x = "Number of Trees", y = "Error")
+```
+
+## Tuned Random Forrest
+
+```{r tuned_rf, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "ROC", ntree = type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)])
+rf_pred_tuned <- predict(tuned_rf, test)
+rf_confusion <- confusionMatrix(rf_pred_tuned, test$diagnosis, positive = "M")
+```
+
+```{r tuned_rf_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(rf_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Random Forrest Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+## Tuned Random Forrest Parameters
+
+- Using all features
+- 10-fold cross validation repeated 10 times
+- $n=$ `r rf1_ntree` trees
+- Type II Error: `r rf_tte`
+- Accuracy: `r rf_confusion$overall[1]`
+
+
+
+## Radial Support Vector Machine
+
+```{r austin_svm, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+#Radial Support Vector Machine
+svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric="ROC")
+svm_pred <- predict(svm, test)
+svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
+
+svm_tte <- svm_confusion$table[1, 2]/sum(svm_confusion$table)
+```
+
+```{r austin_svm_plot, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data.frame(svm_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Radial SVM Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+## Radial Support Vector Machine Parameters
+
+- Using all features
+- 10-fold cross validation repeated 10 times
+- Type II Error: `r svm_tte`
+- Accuracy: `r svm_confusion$overall[1]`
+
+
+## Tuned Radial Support Vector Machine
+
+```{r austin_svm2, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_svm <- tune.svm(diagnosis ~., data = training, gamma = 10^(-5:-1), cost = 10^(-3:1))
+svm2 <- svm(diagnosis ~., data = training, gamma = 0.01, cost = 10, type="C-classification", kernel="radial")
+svm2_pred <- predict(svm2, test)
+svm2_confusion <- confusionMatrix(svm2_pred, test$diagnosis, positive="M")
+
+svm2_tte <- svm2_confusion$table[1, 2]/sum(svm2_confusion$table)
+
+```
+
+```{r austin_svm_plot2, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(svm2_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Tuned Radial SVM Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+## Tuned Radial Support Vector Machine Parameters
+
+- Using all features
+- 10-fold cross validation repeated 10 times
+- Type II Error: `r svm2_tte`
+- Accuracy: `r svm2_confusion$overall[1]`
+
+
+
+
+
+
+
+
+
+
+
 
 ## Classification Analysis: Danny
 
