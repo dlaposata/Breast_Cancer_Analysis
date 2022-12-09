@@ -1,11 +1,12 @@
 ---
 title: "Breast Cancer Diagnosis Classification Analysis"
-author: Austin Lackey, Ethan Powers and Danny Laposata
+author: "Austin Lackey, Ethan Powers and Danny Laposata"
 date: "December 9th, 2022"
-output: 
-  powerpoint_presentation: 
+output:
+  powerpoint_presentation:
     reference_doc: template.pptx
-  
+  slidy_presentation: default
+always_allow_html: true
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
@@ -23,19 +24,10 @@ library(GGally)
 library(plyr)
 library(readr)
 library(repr)
+library(knitr)
+library(kableExtra)
 
 set.seed(420)
-
-dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
-datatemp2 <- dataTemp %>% select_if(~ !any(is.na(.)))
-dataTot <- datatemp2[,!names(datatemp2) %in% c("id")]
-
-testtemp <- read.csv("test.csv")
-testTot <- testtemp[,!names(testtemp) %in% c("id")]
-
-traintemp <- read.csv("training.csv")
-trainTot <- traintemp[,!names(traintemp) %in% c("id")]
-
 knitr::opts_chunk$set(fig.width=12, fig.height=8) 
 ```
 
@@ -58,7 +50,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8)
     - Worst: Mean of 3 largest values of a variable
 - Training/Test Data Split 60/40
 
-## Features
+## Variable Descriptions
 - Radius: Average Distance from cell center to cell perimeter
 - Texture: Standard deviation of gray-scale values; brightness of pixel of cell
 - Perimeter: Distance around nucleus boundary
@@ -82,39 +74,60 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8)
 
 ## Regression Analysis: Ethan
 
-This is my validation plot
+- Austin Top 5 Importance Variables
+    - *area_mean
+    - *area_worst
+    - *concave.points_mean
+    - texture_mean
+    - *radius_worst
+- Danny Top 5 Importance Variables
+    - concave.points_worst
+    - *concave.points_mean
+    - *area_worst
+    - *area_mean
+    - *radius_worst
+    
+## Correlation Plot
+
 ```{r}
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+datatemp2 <- dataTemp %>% select_if(~ !any(is.na(.)))
+dataTot <- datatemp2[,!names(datatemp2) %in% c("id")]
+
+testtemp <- read.csv("test.csv")
+testTot <- testtemp[,!names(testtemp) %in% c("id")]
+
+traintemp <- read.csv("training.csv")
+trainTot <- traintemp[,!names(traintemp) %in% c("id")]
+```
+
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
 dataE <- dataTot
 corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
 ggpairs(corr_df)
 ```
 
+## Models
+
+- Calculating Training and Test Set Error
+    - Linear Regression
+    - Ridge Regression
+    - Lasso Regression
+
+## area_mean
+
+![Best Model was Ridge Regression](area_mean.png){width = "50%}
 
 
+## area_worst
 
-## Classification Analysis: Austin
+![Best Model was Linear Regression](area_worst.png){width = "50%}
 
-## Classification Analysis: Danny
+## concave.points_mean
+![Best Model was Linear Regression](concave.points_mean.png){width = "50%}
 
-## Regression Analysis: Ethan
-```{r}
-dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
-dataTot <- dataTemp %>% select_if(~ !any(is.na(.)))
-testTot <- read.csv("test.csv")
-trainingTot <- read.csv("training.csv")
-
-dataE <- data
-corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
-ggpairs(corr_df)
-```
--Test
-
-
-## Model Assesments
-
-
-
-
+## radius_worst
+![Best Model was Linear Regression](radius_worst.png){width = "50%}
 
 ## Works Cited
 
@@ -122,4 +135,3 @@ ggpairs(corr_df)
     - https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data?datasetId=180&sortBy=voteCount
 - Definition of Features (Variables):
     - https://www.causeweb.org/usproc/sites/default/files/usclap/2017-2/Evaluating_Benign_and_Malignant_Breast_Cancer_Cells_from_Fine-Needle_Aspirates.pdf
-
