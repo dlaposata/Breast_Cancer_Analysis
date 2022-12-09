@@ -36,15 +36,6 @@ Different measurements of each variable are correlated
 
 Relationship with Diagnosis visible for each measurement
 
-```{r, fig.height=6, fig.width=8}
-source("PPTX-code.R", echo = F, local = T)
-
-
-```
-
-
-
-
 ## Classification Analysis: Austin
 
 ## Classification Analysis: Danny
