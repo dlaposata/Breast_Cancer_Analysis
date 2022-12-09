@@ -149,6 +149,7 @@ rf_fit |>
   mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
   conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> rf.cm
 
+rf.cm$table
 autoplot(rf.cm, type = "heatmap") -> plot5
 
 rf_fit |>
