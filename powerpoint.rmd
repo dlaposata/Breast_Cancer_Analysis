@@ -158,7 +158,7 @@ knn_tte <- min(type_two_error_knn$typetwoerror)
 ```
 
 ```{r knn_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
-ggplot() + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$error), size=1) + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$typetwoerror), size=1.5, color="#c82798") + labs(title = "KNN Type I and Overall Error", x = "K", y = "Error")
+ggplot() + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$error), size=1) + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$typetwoerror), size=1.5, color="#c82798") + labs(title = "KNN Type II and Overall Error", x = "K", y = "Error")
 ```
 
 ## Tuned KNN
@@ -212,7 +212,7 @@ rf_tte <- min(type_two_error_rf$typetwoerror)
 ```
 
 ```{r rf_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
-ggplot() + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$error), size=1) + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$typetwoerror), size=1.5, color="#c82798") + labs(title = "Random Forrest Type I and Overall Error", x = "Number of Trees", y = "Error")
+ggplot() + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$error), size=1) + geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$typetwoerror), size=1.5, color="#c82798") + labs(title = "Random Forrest Type II and Overall Error", x = "Number of Trees", y = "Error")
 ```
 
 ## Tuned Random Forrest
@@ -314,6 +314,22 @@ ggplot(data.frame(svm2_confusion$table), aes(x = Prediction, y = Reference, fill
 
 ## Classification Analysis: Danny
 
+```{r}
+### Gathering Data
+
+train <- read.csv("training.csv")
+test <- read.csv("test.csv")
+
+train |>
+  select(-id) -> train
+
+test |>
+  select(-id) -> test
+
+train$diagnosis <- as.factor(train$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+```
+
 - Logistic Regression
 - K-Nearest Neighbors
 - QDA
@@ -369,7 +385,7 @@ neighbors_best <- select_best(knn_tune, metric = "accuracy") |> pull(neighbors)
 
 - Tuned neighbors value to `r neighbors_best`
 - 2 False-Negatives
-- `knn.err` % prediction accuracy
+- 96.04% prediction accuracy
 
 ## KNN Confusion Matrix
 
@@ -435,7 +451,7 @@ cost_best <- select_best(tune_fit, metric = "accuracy") |> pull(cost)
 
 - Tuned cost value to `r cost_best`
 - 2 False-Negatives
-- `svm.err` % prediction accuracy
+- 96.48% prediction accuracy
 
 ## SVC Confusion Matrix
 
@@ -481,7 +497,7 @@ rf_fit |>
 ```
 
 - 1 False-Negative
-- `rf.err` % prediction accuracy
+- 95.15% prediction accuracy
 
 ## RF Confusion Matrix
 
