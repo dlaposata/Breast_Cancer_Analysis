@@ -33,6 +33,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width 
 ## EDA
 
 ```{r}
+<<<<<<< Updated upstream
 ### Packages
 
 library(tidyverse)
@@ -47,6 +48,8 @@ library(discrim)
 library(glmnet)
 library(kableExtra)
 
+=======
+>>>>>>> Stashed changes
 ### Gathering Data
 
 train <- read.csv("training.csv")
@@ -60,21 +63,19 @@ test |>
 
 train$diagnosis <- as.factor(train$diagnosis)
 test$diagnosis <- as.factor(test$diagnosis)
-```
 
-```{r}
 ggplot(train) +
   geom_point(aes(x = concavity_mean, y = radius_mean, col = diagnosis))+
   labs(x = "Concavity Mean", y = "Radius Mean", title = "Severity of Concavity vs. Radius of Tumor")
+```
 
+## EDA
+
+```{r}
 train[,c(1,2,12,22)] |>
   ggpairs()
 ```
 
-
-Different measurements of each variable are correlated
-
-Relationship with Diagnosis visible for each measurement
 
 ## Classification Analysis: Austin
 
@@ -153,6 +154,7 @@ ggplot(data.frame(knn_confusion$table), aes(x = Prediction, y = Reference, fill 
 - $k=$ `r knn1_k` neighbors
 - Type II Error: `r knn_tte`
 - Accuracy: `r knn_confusion$overall[1]`
+
 
 # Random Forrest
 
@@ -238,6 +240,7 @@ ggplot(data.frame(svm_confusion$table), aes(x = Prediction, y = Reference, fill 
 - Type II Error: `r svm_tte`
 - Accuracy: `r svm_confusion$overall[1]`
 
+
 ## Tuned Radial Support Vector Machine
 
 ```{r austin_svm2, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
@@ -280,6 +283,8 @@ ggplot(data.frame(svm2_confusion$table), aes(x = Prediction, y = Reference, fill
 - xGBoost
 - Support Vector Classifier
 - Lower prediction cutoff to account for Type II Error
+
+# Preferred Models
 
 ## K-Nearest Neigbors Model
 
