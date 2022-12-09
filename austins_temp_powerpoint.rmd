@@ -1,0 +1,284 @@
+---
+title: "Breast Cancer Diagnosis Classification Analysis"
+author: Austin Lackey, Ethan Powers and Danny Laposata
+date: "December 9th, 2022"
+output: 
+  powerpoint_presentation: 
+    reference_doc: template.pptx
+  
+---
+```{r setup, include=FALSE}
+# Import packages
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(knitr)
+library(boot)
+library(caret)
+library(randomForest)
+library(e1071)
+library(class)
+knitr::opts_chunk$set(fig.width=14, fig.height=8)
+set.seed(420)
+```
+
+```{r load_data, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# Load the data
+data <- read.csv("breast_cancer_diagnostic_data.csv") # Full Data
+training <- read.csv("training.csv") # Training Data
+test <- read.csv("test.csv")  # Test Data
+# Data Cleaning
+data <- data[,-1] # Remove ID column
+test <- test[,-1] # Remove ID column
+training <- training[,-1] # Remove ID column
+# Convert diagnosis to factor
+data$diagnosis <- as.factor(data$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+training$diagnosis <- as.factor(training$diagnosis)
+```
+
+## Background
+
+- Breast Cancer Diagnosis Data
+- Predict Diagnosis of Tumor based on features (Malignant or Benign)
+- Reduce Type II Error (False-Negatives)
+  - Feature and Model Selection
+
+# Models
+
+```{r train_setup, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+train_control <- trainControl(method = "repeatedcv", summaryFunction = defaultSummary, classProbs = TRUE, number = 10, repeats = 10)
+```
+
+## KNN
+
+```{r austin_knn, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# KNN
+knn <- train(diagnosis ~ ., data = training, method = "knn", metric="ROC", trControl = train_control)
+knn_pred <- predict(knn, test)
+knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+varsKNN <- rownames(data.frame(varImp(knn)[1]))[1:10]
+```
+
+```{r austin_knn_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(knn_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "KNN Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+## Random Forrest
+
+```{r austin_random_forrest, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# Logistic Regression without cross validation
+random_forrest <- train(diagnosis ~ ., data = training, method = "ranger", metric="ROC", trControl = train_control, preProcess=c("center", "scale"))
+rf_pred <- predict(random_forrest, test)
+rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+```
+
+```{r austin_random_forrest_plot, echo=FALSE, message=FALSE, warning=FALSE}
+# Plot confusion matrix
+ggplot(data.frame(rf_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Random Forrest Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+```{r austin_random_forrest_plot2, echo=FALSE, message=FALSE, warning=FALSE}
+#Plotting the false positives and true positives for the logistic regression model
+false_pred <- !(test$diagnosis != rf_pred)
+false_negative <- ifelse((test$diagnosis == "M") & (rf_pred == "B"), "FalseNeg", "Okay")
+ggplot() + geom_point(aes(x=test$texture_mean, y=test$radius_mean, color=false_negative), size=2) + labs(title = "Random Forrest Model False Negatives")
+```
+
+## Radial Support Vector Machine
+
+```{r austin_svm, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+#Radial Support Vector Machine
+svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric="ROC")
+svm_pred <- predict(svm, test)
+svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
+```
+
+```{r austin_svm_plot, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data.frame(svm_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Radial SVM Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+```{r austin_svm2, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_svm <- tune.svm(diagnosis ~., data = training, gamma = 10^(-5:-1), cost = 10^(-3:1))
+```
+
+```{r austin_svm22, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+svm2 <- svm(diagnosis ~., data = training, gamma = 0.01, cost = 10, type="C-classification", kernel="radial")
+svm2_pred <- predict(svm2, test)
+svm2_confusion <- confusionMatrix(svm2_pred, test$diagnosis, positive="M")
+```
+
+```{r austin_svm_plot2, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(svm2_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Radial SVM Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+```{r}
+learn_rf <- randomForest(diagnosis~., data=training, ntree=500, proximity=T, importance=T)
+```
+
+
+#TUNNING MODELS
+
+# KNN
+
+## Tuning KNN
+
+```{r knn_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error <- data.frame(k = seq(1, 100, 1), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error)) {
+    knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = type_two_error$k[i]))
+    knn_pred <- predict(knn, test)
+    knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+    type_two_error$typetwoerror[i] <- knn_confusion$table[1, 2]/sum(knn_confusion$table)
+    type_two_error$error[i] <- (knn_confusion$table[1, 2] + knn_confusion$table[2, 1])/sum(knn_confusion$table)
+}
+print(which.min(type_two_error$typetwoerror))
+```
+
+```{r knn_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + geom_line(aes(x=type_two_error$k, y=type_two_error$error), size=1) + geom_line(aes(x=type_two_error$k, y=type_two_error$typetwoerror), size=1.5, color="#c82798") + labs(title = "KNN Type I and Overall Error", x = "K", y = "Error")
+```
+
+## Tuned KNN
+
+```{r tuned_knn, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = which.min(type_two_error$typetwoerror)))
+knn_pred <- predict(tuned_knn, test)
+knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+```
+
+```{r tuned_knn_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(knn_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "KNN Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+
+# Random Forrest
+
+## Tuning Random Forrest
+
+```{r rf_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error <- data.frame(ntree = seq(1, 100, 10), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error)) {
+    rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "Accuracy", ntree = type_two_error$ntree[i])
+    rf_pred <- predict(rf, test)
+    rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+    type_two_error$typetwoerror[i] <- rf_confusion$table[1, 2]/sum(rf_confusion$table)
+    type_two_error$error[i] <- (rf_confusion$table[1, 2] + rf_confusion$table[2, 1])/sum(rf_confusion$table)
+}
+```
+
+```{r rf_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + geom_line(aes(x=type_two_error$ntree, y=type_two_error$error), size=1) + geom_line(aes(x=type_two_error$ntree, y=type_two_error$typetwoerror), size=1.5, color="#c82798") + labs(title = "Random Forrest Type I and Overall Error", x = "Number of Trees", y = "Error")
+```
+
+## Tuned Random Forrest
+
+```{r tuned_rf, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "ROC", ntree = which.min(type_two_error$typetwoerror))
+rf_pred <- predict(tuned_rf, test)
+rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+```
+
+```{r tuned_rf_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(rf_confusion$table), aes(x = Reference, y = rev(Prediction), fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Random Forrest Confusion Matrix", x = "Reference", y = "Prediction") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 20), axis.title = element_text(size = 30), plot.title = element_text(size = 30)) +
+  annotate("path",
+   x=2+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+# SVM
+
+## Tuning SVM
+
+```{r svm_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+gamma <- seq(0.01, 100, length.out=7)
+cost <- seq(0.01, 100, length.out=7)
+errorLog <- data.frame(gamma = gamma, cost = cost, error = NA, typetwoerror = NA)
+
+for (i in 1:length(gamma)) {
+  for (j in 1:length(cost)) {
+    svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric = "Accuracy", gamma = gamma[i], cost = cost[j])
+    svm_pred <- predict(svm, test)
+    svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive = "M")
+    tempGamma <- gamma[i]
+    tempCost <- cost[j]
+    tempError <- (svm_confusion$table[1, 2] + svm_confusion$table[2, 1])/sum(svm_confusion$table)
+    tempTwo <- svm_confusion$table[1, 2]/sum(svm_confusion$table)
+    errorLog <- rbind(errorLog, data.frame(gamma = tempGamma, cost = tempCost, error = tempError, typetwoerror = tempTwo))
+    print(paste("completed", i, j))
+  }
+}
+errorLog <- tail(errorLog, -7)
+```
+
+```{r svm_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(errorLog, aes(x=gamma, y=cost, fill= typetwoerror)) + 
+  scale_fill_gradient(low="white", high="blue") +
+  geom_tile()
+```
+
+## Tuned SVM
+
+```{r tuned_svm, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+svm2 <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric = "Accuracy", gamma = 0.01, cost = 0.01)
+svm_pred <- predict(svm2, test)
+svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive = "M")
+print(svm_confusion)
+```
+
+```{r tuned_svm_plot, echo=FALSE, message=FALSE, warning=FALSE}
+```

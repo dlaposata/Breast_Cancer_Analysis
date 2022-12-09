@@ -25,18 +25,21 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 - Mean, SE, and "Worst" measurements of 10 variables
 - Training/Test Split (60/40)
 
+## Features
+
+- 
+- 
 
 ## EDA
 
-- Different measurements of each variable are correlated
+Different measurements of each variable are correlated
 
-- Relationship with Diagnosis visible for each measurement
+Relationship with Diagnosis visible for each measurement
 
-```{r, fig.height=3, fig.width=4, fig.align='right', fig.pos='H'}
-source("Danny's Analysis.R", echo = F, local = T)
+```{r, fig.height=6, fig.width=8}
+source("PPTX-code.R", echo = F, local = T)
 
-train[,c(1,2,12,22)] |>
-  ggpairs(title = "Correlation b/w Radius Measurements")
+
 ```
 
 
@@ -45,6 +48,31 @@ train[,c(1,2,12,22)] |>
 ## Classification Analysis: Austin
 
 ## Classification Analysis: Danny
+
+- LogReg
+- KNN
+- QDA
+- RF
+- xGBoost
+- SVC
+- Lower prediction cutoff to account for Type II Error
+
+## K-Nearest Neigbors Model
+
+- Tuned neighbors value
+- 2 False-Negatives
+- 96.04% prediction accuracy
+
+## Support Vector Classifier Model
+
+- Tuned cost value
+- 2 False-Negatives
+- 96.48% prediction accuracy
+
+## Random Forest Model
+
+- 1 False-Negative
+- 95.15% prediction accuracy
 
 ## Regression Analysis: Ethan
 

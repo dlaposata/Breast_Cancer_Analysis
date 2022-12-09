@@ -89,6 +89,27 @@ corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_wo
 ggpairs(corr_df)
 ```
 
+
+
+
+## Classification Analysis: Austin
+
+## Classification Analysis: Danny
+
+## Regression Analysis: Ethan
+```{r}
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+dataTot <- dataTemp %>% select_if(~ !any(is.na(.)))
+testTot <- read.csv("test.csv")
+trainingTot <- read.csv("training.csv")
+
+dataE <- data
+corr_df <- dataE[,c('area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
+ggpairs(corr_df)
+```
+-Test
+
+
 ## Model Assesments
 
 
@@ -101,3 +122,4 @@ ggpairs(corr_df)
     - https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data?datasetId=180&sortBy=voteCount
 - Definition of Features (Variables):
     - https://www.causeweb.org/usproc/sites/default/files/usclap/2017-2/Evaluating_Benign_and_Malignant_Breast_Cancer_Cells_from_Fine-Needle_Aspirates.pdf
+
