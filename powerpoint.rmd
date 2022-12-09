@@ -39,7 +39,7 @@ Relationship with Diagnosis visible for each measurement
 ```{r, fig.height=6, fig.width=8}
 source("PPTX-code.R", echo = F, local = T)
 
-measure_pairs
+
 ```
 
 
@@ -48,6 +48,31 @@ measure_pairs
 ## Classification Analysis: Austin
 
 ## Classification Analysis: Danny
+
+- LogReg
+- KNN
+- QDA
+- RF
+- xGBoost
+- SVC
+- Lower prediction cutoff to account for Type II Error
+
+## K-Nearest Neigbors Model
+
+- Tuned neighbors value
+- 2 False-Negatives
+- 96.04% prediction accuracy
+
+## Support Vector Classifier Model
+
+- Tuned cost value
+- 2 False-Negatives
+- 96.48% prediction accuracy
+
+## Random Forest Model
+
+- 1 False-Negative
+- 95.15% prediction accuracy
 
 ## Regression Analysis: Ethan
 
