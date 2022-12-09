@@ -17,6 +17,7 @@ output: html_document
 #install.packages("plyr")
 #install.packages("readr")
 #install.packages("repr")
+install.packages("kableExtra")
 ```
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
 
@@ -35,6 +36,8 @@ library(GGally)
 library(plyr)
 library(readr)
 library(repr)
+library(knitr)
+library(kableExtra)
 
 set.seed(420)
 
@@ -135,15 +138,19 @@ print(aml_train)
 print(aml_test)
 ```
 
+
 ```{r}
-as_data_frame(rbind(amtrain_log,
-      amr_train,
-      aml_train,
+table_am <- as_tibble(rbind(amtrain_log,
       amtest_log,
+      amr_train,
       amr_test,
+      aml_train,
       aml_test)) %>%
-    mutate(model = c('Linear Train Error',  'Ridge Train Error', 'Lasso Train Error',  'Linear Test Error','Ridge Test Error',  'Lasso Test Error')) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
     select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped")
 ```
 
 --------------------------------------------------------------------------------
@@ -226,15 +233,20 @@ print(awl_test)
 ```
 
 ```{r}
-as_data_frame(rbind(awtrain_log,
-      awr_train,
-      awl_train,
+table_aw <- as_tibble(rbind(awtrain_log,
       awtest_log,
+      awr_train,
       awr_test,
+      awl_train,
       awl_test)) %>%
-    mutate(model = c('Linear Train Error',  'Ridge Train Error', 'Lasso Train Error',  'Linear Test Error','Ridge Test Error',  'Lasso Test Error')) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
     select(model, RMSE, Rsquared)
+table_aw %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped")
 ```
+
+
 --------------------------------------------------------------------------------
 ## concave.points_mean
 
@@ -277,20 +289,20 @@ eval_results <- function(true, predicted, df) {
   # Model performance metrics
 data.frame(
   RMSE = RMSE,
-  Rsquare = R_square)
+  Rsquared = R_square)
   
 }
 
 # Prediction and evaluation on train data
 predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
-cvptsm_train <- eval_results(y_train, predictions_train, trainTot)
+cvptsmr_train <- eval_results(y_train, predictions_train, trainTot)
 
 # Prediction and evaluation on test data
 predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
-cvptsm_test <- eval_results(y_test, predictions_test, testTot)
+cvptsmr_test <- eval_results(y_test, predictions_test, testTot)
 
-print(cvptsm_train)
-print(cvptsm_test)
+print(cvptsmr_train)
+print(cvptsmr_test)
 ```
 
 # lasso
@@ -302,13 +314,27 @@ lambda_best <- lasso_reg$lambda.min
 lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
 
 predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
-cvptsm_train <- eval_results(y_train, predictions_train, trainTot)
+cvptsml_train <- eval_results(y_train, predictions_train, trainTot)
 
 predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
-cvptsm_test <- eval_results(y_test, predictions_test, testTot)
+cvptsml_test <- eval_results(y_test, predictions_test, testTot)
 
-print(cvptsm_train)
-print(cvptsm_test)
+print(cvptsml_train)
+print(cvptsml_test)
+```
+
+```{r}
+table_am <- as_tibble(rbind(cvptsm_train_log,
+      cvptsm_test_log,
+      cvptsmr_train,
+      cvptsmr_test,
+      cvptsml_train,
+      cvptsml_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped")
 ```
 
 --------------------------------------------------------------------------------
@@ -354,20 +380,20 @@ eval_results <- function(true, predicted, df) {
   # Model performance metrics
 data.frame(
   RMSE = RMSE,
-  Rsquare = R_square)
+  Rsquared = R_square)
   
 }
 
 # Prediction and evaluation on train data
 predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
-rw_train <- eval_results(y_train, predictions_train, trainTot)
+rwr_train <- eval_results(y_train, predictions_train, trainTot)
 
 # Prediction and evaluation on test data
 predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
-rw_test <- eval_results(y_test, predictions_test, testTot)
+rwr_test <- eval_results(y_test, predictions_test, testTot)
 
-print(rw_train)
-print(rw_test)
+print(rwr_train)
+print(rwr_test)
 ```
 
 # lasso
@@ -379,11 +405,26 @@ lambda_best <- lasso_reg$lambda.min
 lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
 
 predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
-rw_train <- eval_results(y_train, predictions_train, trainTot)
+rwl_train <- eval_results(y_train, predictions_train, trainTot)
 
 predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
-rw_test <- eval_results(y_test, predictions_test, testTot)
+rwl_test <- eval_results(y_test, predictions_test, testTot)
 
-print(rw_train)
-print(rw_test)
+print(rwl_train)
+print(rwl_test)
 ```
+
+```{r}
+table_am <- as_tibble(rbind(rw_train_log,
+      rw_test_log,
+      rwr_train,
+      rwr_test,
+      rwl_train,
+      rwl_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
