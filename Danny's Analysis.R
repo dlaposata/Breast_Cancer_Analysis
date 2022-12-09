@@ -65,13 +65,14 @@ log.fit |>
 
 log.fit |>
   augment(new_data = test) |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> log.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> log.cm
 
 autoplot(log.cm, type = "heatmap")
 
 vip(log.fit)
 
-### KNN Model
+### KNN Model*
 
 cancer_10foldcv <- vfold_cv(train, v = 10)
 neighbors_df <- data.frame(neighbors = c(1,3,5,7,10))
@@ -98,7 +99,8 @@ knn_final_fit |>
   augment(new_data = test) -> knn_test_res
   
 knn_test_res |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> knn.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> knn.cm
 
 autoplot(knn.cm, type = "heatmap")
 
@@ -106,6 +108,7 @@ knn_test_res |>
   accuracy(truth = diagnosis, estimate = .pred_class) |>
   mutate(error = 1 - .estimate) |>
   pull(error)
+
 
 ### QDA Model
 
@@ -124,7 +127,8 @@ qda.fit |>
   augment(new_data = test) -> qda.test_res
 
 qda.test_res |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> qda.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> qda.cm
 
 autoplot(qda.cm, type = "heatmap")
 
@@ -172,11 +176,12 @@ lasso_final_fit |>
 
 lasso_final_fit  |>
   augment(new_data = test) |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> lasso.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> lasso.cm
 
 autoplot(lasso.cm, type = "heatmap")
 
-### Random Forest Model
+### Random Forest Model*
 
 rf_spec <- rand_forest(mtry = sqrt(.cols())) |>
   set_engine("randomForest", importance = TRUE) |>
@@ -189,7 +194,8 @@ vip(rf_fit)
 
 rf_fit |>
   augment(new_data = test) |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> rf.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> rf.cm
 
 autoplot(rf.cm, type = "heatmap")
 
@@ -212,13 +218,13 @@ boost_fit |>
 
 boost_fit |>
   augment(new_data = test) |>
-  conf_mat(truth = diagnosis, estimate = .pred_class) -> boost.cm
-
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> boost.cm
 autoplot(boost.cm, type = "heatmap")
 
 vip(boost_fit)
 
-### SVM
+### SVM*
 
 df_cost <- grid_regular(cost(), levels = 10)
 
@@ -247,13 +253,10 @@ svm_linear_final_fit |>
                         
 svm_linear_final_fit |>
       augment(new_data = test) |>
-      conf_mat(truth = diagnosis, estimate = .pred_class) -> svm.cm
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> svm.cm
 
 autoplot(svm.cm, type = "heatmap")
 
-svm_linear_final_fit |>
-  augment(new_data = test) |>
-      ggplot() +
-      geom_tile(aes(radius_mean, concavity_mean, fill = .pred_class), alpha = .5) +
-      geom_point(aes(radius_mean, concavity_mean, colour = diagnosis, shape = support_vector, size = support_vector), 
-                                     data = train |> mutate(support_vector = 1:n() %in% svm_linear_final_fit_engine@alphaindex[[1]]))
+View(svm_linear_final_fit |>
+  augment(new_data = test))
