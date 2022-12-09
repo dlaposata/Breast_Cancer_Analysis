@@ -8,15 +8,27 @@ output:
   
 ---
 ```{r setup, include=FALSE}
+# Import packages
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(knitr)
+library(boot)
+library(caret)
+library(randomForest)
+library(e1071)
+library(class)
+set.seed(420)
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width = 14, fig.height = 8)
 ```
 
 ## Background
 
+- Many people are diagnosed with breast cancer each year
 - Breast Cancer Diagnosis Data
-- Predict Diagnosis of Tumor based on features
-- Reduce Type II Error (False-Negatives)
-- Feature Selection
+- Predict Diagnosis of Tumor based on features (Malignant or Benign)
+- *Modivation:* Reduce Type II Error (False-Negatives)
+  - Feature and Model Selection
 
 ## Data
 
@@ -33,7 +45,6 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width 
 ## EDA
 
 ```{r}
-<<<<<<< Updated upstream
 ### Packages
 
 library(tidyverse)
@@ -48,8 +59,6 @@ library(discrim)
 library(glmnet)
 library(kableExtra)
 
-=======
->>>>>>> Stashed changes
 ### Gathering Data
 
 train <- read.csv("training.csv")
