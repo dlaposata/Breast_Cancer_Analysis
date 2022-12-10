@@ -1,6 +1,6 @@
 ---
 title: "Breast Cancer Diagnosis Classification Analysis"
-author: Austin Lackey, Ethan Powers and Danny Laposata
+author: ETHANS'S TEMPLATE
 date: "December 9th, 2022"
 output: 
   pdf_document:
