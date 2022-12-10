@@ -23,11 +23,16 @@ library(randomForest)
 library(e1071)
 library(class)
 set.seed(420)
+data <- read.csv("breast_cancer_diagnostic_data.csv") # Full Data
+training <- read.csv("training.csv") # Training Data
+test <- read.csv("test.csv")  # Test Data
 ```
 
 # Background (Should we do an Abstract?)
 
-*Insert text here*
+In our analysis, we will be using the Breast Cancer Wisconsin (Diagnostic) Data Set from Kaggle. 
+This data set contains 569 observations of breast cancer cells with 32 variables describing each cell. 
+Some of the variables include characteristics like radius, texture, area, perimeter of the cell.
 
 # Data
 
