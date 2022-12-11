@@ -23,20 +23,51 @@ library(randomForest)
 library(e1071)
 library(class)
 set.seed(420)
+# Import data
 data <- read.csv("breast_cancer_diagnostic_data.csv") # Full Data
 training <- read.csv("training.csv") # Training Data
 test <- read.csv("test.csv")  # Test Data
+# Data Cleaning
+data <- data[,-1] # Remove ID column
+test <- test[,-1] # Remove ID column
+training <- training[,-1] # Remove ID column
+# Convert diagnosis to factor
+data$diagnosis <- as.factor(data$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+training$diagnosis <- as.factor(training$diagnosis)
 ```
 
-# Background (Should we do an Abstract?)
+# Introduction (Should we do an Abstract?)
+
+## Background
 
 In our analysis, we will be using the Breast Cancer Wisconsin (Diagnostic) Data Set from Kaggle. 
-This data set contains 569 observations of breast cancer cells with 32 variables describing each cell. 
-Some of the variables include characteristics like radius, texture, area, perimeter of the cell.
+This data set contains `569 observations` of breast cancer cells with `32 variables` describing each cell. 
+Some of the variables include characteristics like `radius`, `texture`, `area`, `perimeter` of the cell.  
 
-# Data
+The goal of our analysis is to predict whether a cell is benign or malignant based on the `32 variables`.
+A cell is considered benign if it is not cancerous and malignant if it is cancerous.
+Normally in most machine learning models, we do our best to train the model to reduce the overall error rate.
+While this is an important goal, our group was more concerned with the `Type-II error rate`.
+By reducing the `Type-II error rate`, we can ensure that we are not making the mistake of classifying a malignant cell as benign.
+This is important in the world of Oncology because if a malignant cell is classified as benign, it could lead to a patient not receiving the proper treatment.
+Whereas if a benign cell is classified as malignant, the patient may be alarmed, but a false alarm is better than a missed diagnosis.
 
-*Insert text here*
+In order to achieve our goal, we conducted the following steps:
+
+1. Data Cleaning
+2. Explatory Data Analysis
+3. Classification Analysis
+4. Regression Analysis
+5. Overall Analysis Summary
+
+## Data
+
+In order to properly train and test our models, we first had to split the data into a training and test set.
+We decided to use a `60/40 split` for our training and test data. This allows us to allocate more data to the training set, which will allow us to train our models more effectively.
+We also decided to remove the `ID` column from the data set because it was not relevant to our analysis.
+
+
 
 ## Variable Descriptions
 
@@ -44,18 +75,251 @@ Some of the variables include characteristics like radius, texture, area, perime
 
 # Explatory Data Analysis
 
+To begin our analysis, we first wanted to get a better understanding of the data so we could properly prepare it for our models.
+As you can see in Figure A below, we have more information regarding the benign cells than the malignant cells.
+To be more specific, we have 357 benign cells and 212 malignant cells.
+Since we are worried about the `Type-II error rate`, we would want more information regarding the malignant cells in an ideal world.
+However since this is not the case, is important to note because it could lead to a bias in our model if we do not take this into account.
+
+```{r, fig.width= 4, fig.height= 4, echo=FALSE, message=FALSE, warning=FALSE}
+# Malignant vs Benign Pie Chart
+pieChart <- ggplot(data, aes(x = "", fill = diagnosis)) + 
+  geom_bar(width = 1) + 
+  coord_polar("y", start = 0) + 
+  labs(title = "Figure A: Malignant vs Benign Cell Counts", x= "", y="", fill="Diagnosis") +  
+  geom_text(stat='count', aes(label=..count..), vjust=-3, size=5)
+print(pieChart)
+```
+
+*Insert text here regarding the GGPairs Plot*
+
+```{r, fig.width= 6, fig.height= 6, echo=FALSE, message=FALSE, warning=FALSE}
+training[,c(1,2,12,22)] |>
+  ggpairs(aes(color = diagnosis)) + labs(title = "Figure B: Pairwise Scatterplots of Features")
+```
+
+
+
+
+# Classification Analysis
+
+During our classification analysis, we attacked `Type-II error` in two different ways.
+Austin used different paramters for each model and to figure out which parameters yield the lowest `Type-II error rate`. 
+However, testing many different parameters can be time consuming and computationally expensive. 
+Danny used a different approach by tuning his models to be more sensitive to Malignant cells. 
+This allows him to reduce the `Type-II error rate` by classifying more cells as Malignant. 
+However, on the downside, this also increases the `Type-I error rate` by classifying more cells as Malignant. 
+By harnessing both approaches, we were able to reduce the `Type-II error rate` to its fullest while also maintaining a good `Type-I error rate`.
+
+## Austin's Classification Proccess and Analysis
+
+```{r load_data, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# Load the data
+set.seed(420)
+data <- read.csv("breast_cancer_diagnostic_data.csv") # Full Data
+training <- read.csv("training.csv") # Training Data
+test <- read.csv("test.csv")  # Test Data
+# Data Cleaning
+data <- data[,-1] # Remove ID column
+test <- test[,-1] # Remove ID column
+training <- training[,-1] # Remove ID column
+# Convert diagnosis to factor
+data$diagnosis <- as.factor(data$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+training$diagnosis <- as.factor(training$diagnosis)
+```
+
+```{r train_setup, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+train_control <- trainControl(method = "repeatedcv", summaryFunction = defaultSummary, classProbs = TRUE, number = 10, repeats = 10)
+```
+
+For all of models that Austin used were tuned using a `10-fold cross validation` method that was repeated 10 times. 
+Cross validation is method that is used to train a model on a subset of the data and then test the model on the remaining data. 
+This process is repeated `10` times with each subset of data being used as the test set once. 
+By using this method we are able to effectively train our model while also testing it on data that it has not seen before.
+
+### KNN Model
+
+The first model that we used was a `K Nearest Neighbor's model`. In order to tune this model, we used the `tuneGrid` parameter to test different values of `k`.
+We tested `100` values of `k` ranging from `1` to `100` and then plotted the `Type-II error rate` (in purple) as well as the overall error rate (in black) for each value of `k` as shown in Figure C below.
+The model with the lowest `Type-II error rate` was the model with `k = 10`. Any value of `k` greater than `10` resulted in a higher `Type-II error rate` as well as a higher overall error rate.
+This can be attributed to the fact that the model is overfitting the data.
+
+```{r knn_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error_knn <- data.frame(k = seq(1, 100, 1), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error_knn)) {
+    knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = type_two_error_knn$k[i]))
+    knn_pred <- predict(knn, test)
+    knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+    type_two_error_knn$typetwoerror[i] <- knn_confusion$table[1, 2]/sum(knn_confusion$table)
+    type_two_error_knn$error[i] <- (knn_confusion$table[1, 2] + knn_confusion$table[2, 1])/sum(knn_confusion$table)
+}
+print(which.min(type_two_error_knn$typetwoerror))
+knn1_k <- which.min(type_two_error_knn$typetwoerror)
+knn_tte <- min(type_two_error_knn$typetwoerror)
+```
+
+```{r knn_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$error), size=1) + 
+  geom_line(aes(x=type_two_error_knn$k, y=type_two_error_knn$typetwoerror), size=1.5, color="#c82798") + 
+  labs(title = "Figure C: KNN Type II and Overall Error", x = "K", y = "Error")
+```
+
+### Tuned KNN Model
+
+```{r tuned_knn, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(420)
+tuned_knn <- train(diagnosis ~ ., data = training, method = "knn", trControl = train_control, metric = "Accuracy", tuneGrid = data.frame(k = which.min(type_two_error_knn$typetwoerror)))
+knn_pred <- predict(tuned_knn, test)
+knn_confusion <- confusionMatrix(knn_pred, test$diagnosis, positive = "M")
+```
+
+
+Using the information from the previous plot, we were able to tune our model to have a `k` value of `10`. 
+This tuned model resulted in a `Type-II error rate` of `r knn_tte` and an overall accuracy of `r knn_confusion$overall[1]`.
+The confusion matrix for this model is shown in Figure D below. 
+As you can see out of the total `r dim(training)[1]` training samples, `r knn_confusion$table[1, 2]` were misclassified as benign when they were actually malignant.
+
+```{r tuned_knn_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(knn_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Figure D: KNN Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+### Random Forrest Model
+
+```{r rf_tuning, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+type_two_error_rf <- data.frame(ntree = seq(1, 100, 10), error = NA, typetwoerror = NA)
+
+for (i in 1:nrow(type_two_error_rf)) {
+    rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "Accuracy", ntree = type_two_error_rf$ntree[i])
+    rf_pred <- predict(rf, test)
+    rf_confusion <- confusionMatrix(rf_pred, test$diagnosis, positive = "M")
+    type_two_error_rf$typetwoerror[i] <- rf_confusion$table[1, 2]/sum(rf_confusion$table)
+    type_two_error_rf$error[i] <- (rf_confusion$table[1, 2] + rf_confusion$table[2, 1])/sum(rf_confusion$table)
+}
+print(which.min(type_two_error_rf$typetwoerror))
+rf1_ntree <- type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)]
+rf_tte <- min(type_two_error_rf$typetwoerror)
+```
+
+The second model that we used was a `Random Forrest model`. In order to tune this model, we used the `tuneGrid` parameter to test different numbers of `trees`.
+We tested `10` values of `trees` ranging from `1` to `100` and then plotted the `Type-II error rate` (in purple) as well as the overall error rate (in black) for each value of `trees` as shown in Figure E below. 
+The model with the lowest `Type-II error rate` was the model with `trees =` `r type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)]`. 
+Any value of `trees` greater than `r type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)]` resulted in a higher `Type-II error rate` or a higher computation time for the same `Type-II error rate`.
+
+
+```{r rf_tuning_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot() + 
+  geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$error), size=1) + 
+  geom_line(aes(x=type_two_error_rf$ntree, y=type_two_error_rf$typetwoerror), size=1.5, color="#c82798") + 
+  labs(title = "Figure E: Random Forrest Type II and Overall Error", x = "Number of Trees", y = "Error")
+```
+
+### Tuned Random Forrest
+
+Using the information from the previous plot, we were able to tune our model to have a `trees` value of `r type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)]`.
+This tuned model resulted in a `Type-II error rate` of `r rf_tte` and an overall accuracy of `r rf_confusion$overall[1]`.
+The confusion matrix for this model is shown in Figure F below.
+As you can see out of the total `r dim(training)[1]` training samples, `r rf_confusion$table[1, 2]` were misclassified as benign when they were actually malignant.
+And we were able to further reduce our `Type-II error rate` from `r knn_tte` to `r rf_tte` when compared to the KNN model.
+
+```{r tuned_rf, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_rf <- train(diagnosis ~ ., data = training, method = "rf", trControl = train_control, metric = "ROC", ntree = type_two_error_rf$ntree[which.min(type_two_error_rf$typetwoerror)])
+rf_pred_tuned <- predict(tuned_rf, test)
+rf_confusion <- confusionMatrix(rf_pred_tuned, test$diagnosis, positive = "M")
+```
+
+```{r tuned_rf_plot, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(rf_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Figure F: Random Forrest Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+### Radial Support Vector Machine
+
+```{r austin_svm, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+#Radial Support Vector Machine
+svm <- train(diagnosis ~ ., data = training, method = "svmRadial", trControl = train_control, metric="ROC")
+svm_pred <- predict(svm, test)
+svm_confusion <- confusionMatrix(svm_pred, test$diagnosis, positive="M")
+
+svm_tte <- svm_confusion$table[1, 2]/sum(svm_confusion$table)
+```
+
+The third model that we used was a `Radial Support Vector Machine`.
+To begin we used a basic model with the default parameters and then tuned the model using the `tuneGrid` parameter.
+The basic SVM model resulted in a `Type-II error rate` of `r svm_tte` and an overall accuracy of `r svm_confusion$overall[1]`.
+The confusion matrix for this model is shown in Figure G below.
+As you can see out of the total `r dim(training)[1]` training samples, `r svm_confusion$table[1, 2]` was misclassified as benign when they it was actually malignant.
+This is a great improvement in our `Type-II error rate` when compared to the other models.
+
+
+```{r austin_svm_plot, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data.frame(svm_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Figure G: Radial SVM Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+
+### Tuned Radial Support Vector Machine
+
+```{r austin_svm2, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+tuned_svm <- tune.svm(diagnosis ~., data = training, gamma = 10^(-5:-1), cost = 10^(-3:1))
+svm2 <- svm(diagnosis ~., data = training, gamma = 0.01, cost = 10, type="C-classification", kernel="radial")
+svm2_pred <- predict(svm2, test)
+svm2_confusion <- confusionMatrix(svm2_pred, test$diagnosis, positive="M")
+
+svm2_tte <- svm2_confusion$table[1, 2]/sum(svm2_confusion$table)
+
+```
+
+The final model that we used was a tuned `Radial Support Vector Machine`.
+The tuned model resulted in a `Type-II error rate` of `r svm2_tte` and an overall accuracy of `r svm2_confusion$overall[1]`.
+The confusion matrix for this model is shown in Figure H below.
+Out of the total `r dim(training)[1]` training samples, `r svm2_confusion$table[1, 2]` were misclassified as benign when they were actually malignant.
+As you can see, our `Type-II error rate` was actually increased to `r svm2_tte` when compared to the basic SVM model.
+Since this svm model was tuned using carets `tune.svm` function, the overall error was reduced, but this resulted in a slightly higher `Type-II error rate`.
+For this reason, our basic model is actually better than the tuned model when it comes to meeting our goal of reducing the `Type-II error rate`.
+
+
+```{r austin_svm_plot2, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data.frame(svm2_confusion$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Figure H: Tuned Radial SVM Confusion Matrix", x = "Prediction", y = "Reference") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
+```
+
+
+
 *Insert text here*
 
-
-
-
-
-
-# Austin's Classification Proccess and Analysis
-
-*Insert text here*
-
-# Dannys's Classification Proccess and Analysis
+## Dannys's Classification Proccess and Analysis
 
 *Insert text here*
 
@@ -75,7 +339,15 @@ Some of the variables include characteristics like radius, texture, area, perime
 
 # Potential Improvements
 
-*Insert text here*
+Following our analysis, we have identified a few potential improvements that could be made to our analysis to further improve our models.
+The obvious and first improvement that could be made is to **collect more data**. With more data, we would allow our models to see more examples of malignant cells and be able to better classify them.
+As you saw in the Exploratory Data Analysis section, we have more more information regarding the benign cells than the malignant cells. 
+If we had more data, we could balance out the data set and have more information regarding the malignant cells.
+Another possible improvement is to **collect different or more features** regarding each cell. 
+Most of the features included the mean, worst and standard error of geometry measurements of the cell. This leads to many variables being highly correlated with each other and could lead to multicollinearity.
+If we had more features, we could reduce the multicollinearity and diversify the information we have regarding each cell.
+Finally, if we had **access to better technology** and more time or money, we could use a more advanced machine learning model.
+Because this project was done for a class, we were limited to the models we could use as there was a time contraint, especially in a team enviroment.
 
 # Works Cited
 
