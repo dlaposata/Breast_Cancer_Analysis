@@ -10,6 +10,8 @@ output:
     df_print: paged
     fig_caption: TRUE
     highlight: tango
+    extra_dependencies: ["float"]
+  
 ---
 ```{r setup, include=FALSE}
 # Import packages
@@ -22,7 +24,27 @@ library(caret)
 library(randomForest)
 library(e1071)
 library(class)
+#
+library(dplyr)
+library(leaps)
+library(caTools)
+library(tidymodels)
+library(glmnet)
+library(forecast)
+library(plyr)
+library(readr)
+library(repr)
+library(kableExtra)
+
 set.seed(420)
+
+#
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#tinytex::install_tinytex()
+
 ```
 
 # Background (Should we do an Abstract?)
@@ -35,7 +57,23 @@ set.seed(420)
 
 ## Variable Descriptions
 
-*Insert text here*
+After removing the `ID` column, we were left with `31 variables`. 
+For this project our response variable is `diagnosis` as this variable tells whether an observation is Malignant (cancerous cells): `M` or Benign (noncancerous cells): `B`.
+The predictor variables make up the remaining 30 columns; however there are only actually 10 variables that each have 3 measurements.
+These measurements are `mean`, `standard error (SE)`, and `worst` (the mean of the 3 largest values of a variables).
+
+Below is a brief explanation of what each of the 10 variables represent:
+
+- Radius: Average Distance from cell center to cell perimeter
+- Texture: Standard deviation of gray-scale values; brightness of pixel of cell
+- Perimeter: Distance around nucleus boundary
+- Area: Area of the nucleus
+- Smoothness: Variation in cell's radial lengths
+- Compactness: The Perimeter^2/Area
+- Concavity: Size of the indention in nucleus boundary
+- Concave Points: Number of points on indented section of nucleus boundary
+- Symmetry: Deviation of the nuclei shape from the ideal measurement
+- Fractal Dimension: Measurement of irregularity in nucleus boundary
 
 # Explatory Data Analysis
 
@@ -56,13 +94,429 @@ set.seed(420)
 
 # Ethans's Regression Proccess and Analysis
 
-*Insert text here*
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
 
+dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
+datatemp2 <- dataTemp %>% select_if(~ !any(is.na(.)))
+dataTot <- datatemp2[,!names(datatemp2) %in% c("id")]
 
+testtemp <- read.csv("test.csv")
+testTot <- testtemp[,!names(testtemp) %in% c("id")]
 
+traintemp <- read.csv("training.csv")
+trainTot <- traintemp[,!names(traintemp) %in% c("id")]
+```
 
+While Austin and Danny did Classification Analysis on `Type-II error rate`, I decided to do a Regression Analysis using the variable importance from their analysis's to compute the `training` and `test` error rate of those variables. 
+This is to see how much error exists in a variable that is important in calculating if a cell is Malignant or Benign.
+However, I will be focused on `test` error in my results as its more important to see how our results will be on future data rather than what we have already trained. The regression models that I will be using are:
 
+    - Linear Regression
+    - Ridge Regression
+    - Lasso Regression
+    
+## Variables
 
+In order to find the variables to run the Regression Analysis on, I had Austin and Danny run a variable importance plot on the data they collected and took the top 5 variables from each of their results, which are listed below.
+
+- Austin Top 5 Importance Variables:
+
+  1. *`area_mean`
+  2. *`area_worst`
+  3. *`concave.points_mean`
+  4. `texture_mean`
+  5. *`radius_worst`
+    
+- Danny Top 5 Importance Variables
+
+  1. `concave.points_worst`
+  2. *`concave.points_mean`
+  3. *`area_worst`
+  4. *`area_mean`
+  5. *`radius_worst`
+
+After I got both Austin's and Danny's top 5 importance variables, I noticed that there were 4 common variables in each of their results (designated with a '*' in the results above).
+I then decided to see how the 4 common importance variables correlate to one another which can be seen in the pairwise scatterplot below:
+
+```{r correlation_plot, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+corr_df <- dataTot[,c( 'area_worst', 'area_mean', 'concave.points_mean', 'radius_worst')]
+ggpairs(corr_df) + labs(title = "Figure 1: Pairwise Scatterplot of Common Importance Variables")
+```
+
+What I found interesting was that `area_worst` & `raduis_worst` were more correlated that `area_worst` & `area_mean`. What I initially thought before making `Figure 1` was that `area_worst` & `area_mean` would be more correlated than the other 2 variables as they are both under the same variable category.
+
+## area_mean
+
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+#Train
+am_lm <- lm(area_mean ~ ., data = trainTot)
+pred_amtrain<- predict(am_lm, trainTot)
+amtrain_log <- postResample(pred_amtrain, trainTot$area_mean)
+#amtrain_log
+```
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+#Test
+pred_amtest <- predict(am_lm, testTot)
+amtest_log <- postResample(pred_amtest, testTot$area_mean)
+#amtest_log
+#summary(am_lm)
+```
+
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+dummy <- dummyVars(area_mean~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$area_mean
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$area_mean
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquared = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+amr_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+amr_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(amr_train)
+#print(amr_test)
+```
+
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+aml_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+aml_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(aml_train)
+#print(aml_test)
+```
+
+For `area_mean` after running the 3 regression models, I found the lowest `test error` is from the ridge regression model with an `RMSE` of `23.70795` with a `Rsquared` of `99.489%`. 
+This mean that using ridge regression, we can explain `99.489%` of the variance in `area_mean` in Austin's and Danny's models.
+The ridge regression corresponding `training error` is `17.87197` with a `Rsquared` of 	`99.759%`.
+This corresponds to that `99.759%` of our variance in `area_mean` was trained in Austin's and Danny's models.
+
+```{r area_mean_table, echo=FALSE, message=FALSE, warning=FALSE}
+table_am <- as_tibble(rbind(amtrain_log,
+      amtest_log,
+      amr_train,
+      amr_test,
+      aml_train,
+      aml_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+## Area_worst
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Test
+aw_lm <- lm(area_worst ~ ., data = trainTot)
+pred_awtest <- predict(aw_lm, testTot)
+awtest_log <- postResample(pred_awtest, testTot$area_worst)
+#awtest_log
+#summary(am_lm)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Train
+pred_awtrain<- predict(aw_lm, trainTot)
+awtrain_log <- postResample(pred_awtrain, trainTot$area_worst)
+#awtrain_log
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+dummy <- dummyVars(area_worst~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$area_worst
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$area_worst
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquared = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+awr_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+awr_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(awr_train)
+#print(awr_test)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+awl_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+awl_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(awl_train)
+#print(awl_test)
+```
+
+In `area_worst` after running the 3 regression models, I found the lowest `test error` is from the ridge regression model with an `RMSE` of `42.28132` with a `Rsquared` of `99.288%`. 
+This mean that using ridge regression, we can explain `99.288%` of the variance in `area_worst` in Austin's and Danny's models.
+The ridge regression corresponding `training error` is `27.36780` with a `Rsquared` of `99.799%`.
+This corresponds to that `99.799%` of our variance in `area_worst` was trained in Austin's and Danny's models.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+table_aw <- as_tibble(rbind(awtrain_log,
+      awtest_log,
+      awr_train,
+      awr_test,
+      awl_train,
+      awl_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_aw %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+## concave.points_mean
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Train
+cvptsm_lm <- lm(concave.points_mean ~ ., data = trainTot)
+pred_cvptsm_train<- predict(cvptsm_lm, trainTot)
+cvptsm_train_log <- postResample(pred_cvptsm_train, trainTot$concave.points_mean)
+#cvptsm_train_log
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Test
+pred_cvptsm_test <- predict(cvptsm_lm, testTot)
+cvptsm_test_log <- postResample(pred_cvptsm_test, testTot$concave.points_mean)
+#cvptsm_test_log
+#summary(am_lm)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+dummy <- dummyVars(concave.points_mean~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$concave.points_mean
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$concave.points_mean
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquared = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+cvptsmr_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+cvptsmr_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(cvptsmr_train)
+#print(cvptsmr_test)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+cvptsml_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+cvptsml_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(cvptsml_train)
+#print(cvptsml_test)
+```
+
+With `concave.points_mean` after running the 3 regression models, I found the lowest `test error` is from the linear regression model with an `RMSE` of `0.00574` with a `Rsquared` of `97.847%`. 
+This mean that using ridge regression, we can explain `97.847%` of the variance in `concave.points_mean` in Austin's and Danny's models.
+The ridge regression corresponding `training error` is `0.00467` with a `Rsquared` of `98.532%`.
+This corresponds to that `98.532%` of our variance in `concave.points_mean` was trained in Austin's and Danny's models.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+table_am <- as_tibble(rbind(cvptsm_train_log,
+      cvptsm_test_log,
+      cvptsmr_train,
+      cvptsmr_test,
+      cvptsml_train,
+      cvptsml_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+## radius_worst
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Train
+rw_lm <- lm(radius_worst ~ ., data = trainTot)
+pred_rw_train<- predict(rw_lm, trainTot)
+rw_train_log <- postResample(pred_rw_train, trainTot$radius_worst)
+#rw_train_log
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+#Test
+pred_rw_test <- predict(rw_lm, testTot)
+rw_test_log <- postResample(pred_rw_test, testTot$radius_worst)
+#rw_test_log
+#summary(am_lm)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+dummy <- dummyVars(radius_worst~., data = dataTot[,-1])
+x = as.matrix(predict(dummy, newdata = trainTot[,-1]))
+y_train = trainTot$radius_worst
+
+x_test = as.matrix(predict(dummy, newdata = testTot[,-1]))
+y_test = testTot$radius_worst
+
+lambdas <- 10^seq(2, -3, by = -.1)
+ridge_reg = glmnet(x, y_train, alpha = 0, family = 'gaussian', lambda = lambdas)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquared = R_square)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg, s = optimal_lambda, newx = x)
+rwr_train <- eval_results(y_train, predictions_train, trainTot)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+rwr_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(rwr_train)
+#print(rwr_test)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 10)
+
+lambda_best <- lasso_reg$lambda.min 
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+predictions_train <- predict(lasso_model, s = lambda_best, newx = x)
+rwl_train <- eval_results(y_train, predictions_train, trainTot)
+
+predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
+rwl_test <- eval_results(y_test, predictions_test, testTot)
+
+#print(rwl_train)
+#print(rwl_test)
+```
+
+For `radius_worst` after running the 3 regression models, I found the lowest `test error` is from the lasso regression model with an `RMSE` of `0.24120	` with a `Rsquared` of `99.713%`. 
+This mean that using ridge regression, we can explain `99.713%` of the variance in `radius_worst` in Austin's and Danny's models.
+The ridge regression corresponding `training error` is `0.15907` with a `Rsquared` of `99.900%`.
+This corresponds to that `99.900%` of our variance in `radius_worst` was trained in Austin's and Danny's models.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+table_am <- as_tibble(rbind(rw_train_log,
+      rw_test_log,
+      rwr_train,
+      rwr_test,
+      rwl_train,
+      rwl_test)) %>%
+    mutate(model = c('Linear Train Error',  'Linear Test Error','Ridge Train Error', 'Ridge Test Error', 'Lasso Train Error', 'Lasso Test Error')) %>%
+    select(model, RMSE, Rsquared)
+table_am %>% 
+  kbl(digits = 5 ) %>% 
+  kable_styling(bootstrap_options = "striped") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
 
 # Analysis Summary
 
