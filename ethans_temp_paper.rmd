@@ -14,16 +14,6 @@ output:
   
 ---
 ```{r setup, include=FALSE}
-# Import packages
-library(tidyverse)
-library(ggplot2)
-library(GGally)
-library(knitr)
-library(boot)
-library(caret)
-library(randomForest)
-library(e1071)
-library(class)
 #
 library(dplyr)
 library(leaps)
@@ -95,6 +85,8 @@ Below is a brief explanation of what each of the 10 variables represent:
 # Ethans's Regression Proccess and Analysis
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results=FALSE}
+
+set.seed(420)
 
 dataTemp <- read.csv("breast_cancer_diagnostic_data.csv")
 datatemp2 <- dataTemp %>% select_if(~ !any(is.na(.)))
