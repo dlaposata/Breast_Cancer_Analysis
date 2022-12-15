@@ -39,6 +39,15 @@ In order to achieve our goal, we conducted the following steps:
 * randomForest
 * e1071
 * class
+* ggplot2
+* tidyr
+* tidymodels
+* vip
+* caTools
+* xgboost
+* discrim
+* glmnet
+* kableExtra
 
 *Note:* If you do not have one of these packages installed. use the command `install.packages("<package-name>")` to install it.
 
