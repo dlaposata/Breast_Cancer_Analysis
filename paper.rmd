@@ -39,7 +39,11 @@ training$diagnosis <- as.factor(training$diagnosis)
 
 \newpage
 
-# Introduction (Should we do an Abstract?)
+# Introduction 
+
+## Abstract
+
+According to the American Cancer Society breast cancer accounts for approximately 30% of female cancer diagnoses in the United States each year. They also state that they average risk of a woman in the United States developing breast cancer at some point in their life is around 13%. This means that about 1 in 8 women will get breast cancer at some point in their lifetime. Although breast cancer is not viewed as terminal as other types of cancer, women in the United States have about a 2.5% of dying from breast cancer. While breast cancer is treatable, it is very important to recognize the tumor early on in order to treat it effectively. 
 
 ## Background
 
@@ -1005,6 +1009,8 @@ Because this project was done for a class, we were limited to the models we coul
 
 # Works Cited
 
+- American Cancer Society Breast Cancer Facts:
+    - https://www.cancer.org/cancer/breast-cancer/about/how-common-is-breast-cancer.html
 - Breast Cancer Wisconsin (Diagnostic) Data Set:
     - https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data?datasetId=180&sortBy=voteCount
 - Definition of Features (Variables):

@@ -473,7 +473,7 @@ ggplot(data.frame(svm.cm$table), aes(x = Prediction, y = Truth, fill = Freq)) +
 
 ```{r}
 ### Random Forest
-set.seed(445)
+set.seed(420)
 rf_spec <- rand_forest(mtry = sqrt(.cols())) |>
   set_engine("randomForest", importance = TRUE) |>
   set_mode("classification")

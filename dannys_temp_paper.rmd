@@ -42,9 +42,7 @@ set.seed(420)
 *Insert text here*
 
 
-
-
-
+Another important thing to note about the data is the variables included. There are three different measurements for the ten predictor variables: mean value, standard error, and "worst" value (mean of 3 largest measurements). As shown the correlation plot below, these three measurements are all correlated to each other, but still hold a strong relationship with the diagnosis response variable. The relation between the mean value and "worst" value is almost completely correlated which makes sense as both are averages however, the "worst" value only uses the three largest measurements. This is important to know when trying to interpret feature effect, importance and selection.
 
 # Austin's Classification Proccess and Analysis
 
@@ -262,6 +260,10 @@ As shown above, the Random Forest model predicted the best out of all our models
 # Analysis Summary
 
 *Insert text here*
+
+From the results of our classification analysis, we are confident not only in our predictions of tumor diagnosis, but reducing the amount of false-negative diagnoses. Through our methods of tuning specifically for Type II error, and lowering the prediction cutoff for malignant tumors, we have shown two successful ways of battling classification data with a preffered error class. This is extremely important in cancer diagnosis, as well as other analyses, as we do not want to tell someone they don't have cancer when they do, as that could delay treatment and further risk their life. 
+
+In terms of feature importance and feature selection, there were many limitations in interpretations due to the correlation of the measurement types. We did find that there were a number of the same features outlined by different models, so we can conclude that the variables, regardless of the measurement type, hold importance in classifying a tumor diagnosis.
 
 # Potential Improvements
 
