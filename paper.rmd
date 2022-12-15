@@ -37,6 +37,8 @@ test$diagnosis <- as.factor(test$diagnosis)
 training$diagnosis <- as.factor(training$diagnosis)
 ```
 
+\newpage
+
 # Introduction (Should we do an Abstract?)
 
 ## Background
@@ -98,8 +100,7 @@ training[,c(1,2,12,22)] |>
   ggpairs(aes(color = diagnosis)) + labs(title = "Figure B: Pairwise Scatterplots of Features")
 ```
 
-
-
+\newpage
 
 # Classification Analysis
 
@@ -315,18 +316,215 @@ ggplot(data.frame(svm2_confusion$table), aes(x = Prediction, y = Reference, fill
    y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798")
 ```
 
-
-
-*Insert text here*
+\newpage
 
 ## Dannys's Classification Proccess and Analysis
 
-*Insert text here*
+```{r, echo = F, warning = F, message = F}
+library(tidyverse)
+library(GGally)
+library(ggplot2)
+library(tidyr)
+library(tidymodels)
+library(vip)
+library(caTools)
+library(xgboost)
+library(discrim)
+library(glmnet)
+library(kableExtra)
+
+### Gathering Data
+
+train <- read.csv("training.csv")
+test <- read.csv("test.csv")
+
+train |>
+  select(-id) -> train
+
+test |>
+  select(-id) -> test
+
+train$diagnosis <- as.factor(train$diagnosis)
+test$diagnosis <- as.factor(test$diagnosis)
+```
+
+As the main purpose of this analysis is to reduce Type II error, we wanted to try different ways of recuding this within similar models. The following models all use classification to classify a tumor as benign or malignant however they have a lower prediction cutoff of 25% malignant to bias our results towards more malignant. For example, if a tumor is only 30% likely to be malignant, we still would classify that tumor as malignant to avoid false negatives. While this does lead to higher Type 1 error and sometimes lower overall accuracy, we aren't as worried about the false-positives. We fit a number of models on the training data using this approach, including Logistic Regression, K-Nearest Neighbors, Quadratic Discriminant Analysis (QDA), Random Forest, xgBoost, and lastly a support vector classifier. While all the most models performed quite decently, there were a few that stood out.
+
+### K-Nearest Neighbors
+
+```{r, echo = F, warning = F, message = F}
+set.seed(445)
+### KNN
+
+cancer_10foldcv <- vfold_cv(train, v = 10)
+neighbors_df <- data.frame(neighbors = c(1,3,5,7,10))
+
+knn_spec <- the_model <- nearest_neighbor(neighbors = tune("neighbors")) %>%
+  set_engine("kknn") %>% 
+  set_mode("classification") 
+
+knn_rec <- recipe(diagnosis ~ ., data = train)
+
+workflow() |>
+  add_model(knn_spec) |>
+  add_recipe(knn_rec) -> knn_wf
+
+knn_wf |>
+  tune_grid(resamples = cancer_10foldcv, grid = neighbors_df) -> knn_tune
+
+knn_final <- finalize_workflow(knn_wf, select_best(knn_tune, metric = "accuracy"))
+knn_final_fit <- fit(knn_final, data = train)
+
+knn_final_fit |>
+  augment(new_data = test) -> knn_test_res
+
+knn_test_res |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> knn.cm
+
+knn_test_res |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  accuracy(truth = diagnosis, estimate = pred_lower_cutoff) |>
+  mutate(error = 1 - .estimate) |>
+  pull(error) -> knn.err
+
+100 - (round(knn.err, 4) * 100) -> knn.err
+
+neighbors_best <- select_best(knn_tune, metric = "accuracy") |> pull(neighbors)
+```
+
+K-Nearest Neighbors is a classifying method that estimates the bayes classifier using the closest training points to the test point that is being classified. It uses a neighbor parameter that is a big factor in determining the classifier. For this model, we used 10-fold cross-validation to tune the neighbor parameter based on the highest accuracy. Once the neighbors parameter was tuned to `r neighbors_best`, the model was fit and prediction ensued. The confusion matrix showcasing the classification prediction of this model is below. 
+
+```{r, echo = F, warning = F, message = F}
+ggplot(data.frame(knn.cm$table), aes(x = Prediction, y = Truth, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "K-Nearest Neighbors Confusion Matrix", x = "Prediction", y = "Truth") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798") +
+  guides(fill = F)
+```
+
+As shown in the confusion matrix, this KNN model only predicted two false-negatives out of 223 test observations and 90 true test malignant tumors. The KNN model predicted with an overall accuracy of `r knn.err`. While this model did perform quite well, we still want to improve these results.
+
+### Support Vector Classifier
+
+```{r, echo = F, warning = F, message = F}
+set.seed(445)
+### SVC
+
+df_cost <- grid_regular(cost(), levels = 10)
+
+svm_linear_tune_spec <- svm_poly(degree = 1, cost = tune("cost")) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab", scaled = FALSE)
+
+svm_linear_rec <- recipe(diagnosis ~ ., data = train)
+
+svm_linear_wf <- workflow() |>
+  add_model(svm_linear_tune_spec) |>
+  add_recipe(svm_linear_rec)
+
+tune_fit <- svm_linear_wf |>
+  tune_grid(resamples = cancer_10foldcv, grid = df_cost)
+
+svm_linear_final <- finalize_workflow(svm_linear_wf, select_best(tune_fit, metric = "accuracy"))
+
+svm_linear_final |>
+  fit(data = train) -> svm_linear_final_fit
+
+svm_linear_final_fit |>
+  extract_fit_engine() -> svm_linear_final_fit_engine
+
+svm_linear_final_fit |>
+  augment(new_data = test) |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> svm.cm
+
+svm_linear_final_fit |>
+  augment(new_data = test) |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  accuracy(truth = diagnosis, estimate = pred_lower_cutoff) |>
+  mutate(error = 1 - .estimate) |>
+  pull(error) -> svm.err
+
+100 - (round(svm.err, 4) * 100) -> svm.err
+
+cost_best <- select_best(tune_fit, metric = "accuracy") |> pull(cost)
+```
+
+A support vector classifier uses a softened margin classifier to classify the observations but with less sensitivity than a maximal margin classifier. The support vector classifier will not necessarily classify all training points accurately, but this allows for better test prediction. We tuned our support vector classifier to take a cost value of `r cost_best` using 10-fold cross-validation. The confusion matrix showcasing the prediciton accuracy of the support vector classifier model can be seen below.
+
+```{r, echo = F, warning = F, message = F}
+ggplot(data.frame(svm.cm$table), aes(x = Prediction, y = Truth, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Support Vector Classifier Confusion Matrix", x = "Prediction", y = "Truth") +
+  theme_minimal() + 
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798") +  
+  guides(fill = F)
+```
+
+As shown above, the support vector classifier predicted the exact same as the KNN model. With only 2 false negatives and an overall accuracy of `r svm.err`, this model was not an improvement from the KNN model, but it is reassuring to see consistent high accuracy amongst different models. The last model we will look at is a Random Forest model.
+
+### Random Forest
+
+```{r, echo = F, warning = F, message = F}
+### Random Forest
+set.seed(420)
+rf_spec <- rand_forest(mtry = sqrt(.cols())) |>
+  set_engine("randomForest", importance = TRUE) |>
+  set_mode("classification")
+
+rf_fit <- rf_spec |>
+  fit(diagnosis ~ ., data = train)
+
+rf_fit |>
+  augment(new_data = test) |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  conf_mat(truth = diagnosis, estimate = pred_lower_cutoff) -> rf.cm
+
+rf_fit |>
+  augment(new_data = test) |>
+  mutate(pred_lower_cutoff = factor(ifelse(.pred_M > 0.25, "M", "B"))) |>
+  accuracy(truth = diagnosis, estimate = pred_lower_cutoff) |>
+  mutate(error = 1 - .estimate) |>
+  pull(error) -> rf.err
+
+100 - (round(rf.err, 4) * 100) -> rf.err
+```
+
+Random Forest creates many decision trees from bootstrapped sample training points and uses a subset of predictors for each tree. The main difference between Random Forest and bagging decision trees is this feature subset that helps decorrelate the trees. For this Random Forest model, a default of 500 trees was used as tuning did not improve the model. The confusion matrix showcasing the prediction accuracy of the Random Forest model is shown below. 
+
+```{r, echo = F, echo = F, warning = F, message = F}
+ggplot(data.frame(rf.cm$table), aes(x = Prediction, y = Truth, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), size = 12) +
+  scale_fill_gradient(low = "white", high = "#c82798") +
+  labs(title = "Random Forest Confusion Matrix", x = "Prediction", y = "Truth") +
+  theme_minimal() +
+  annotate("path",
+   x=1+.25*cos(seq(0,2*pi,length.out=100)),
+   y=2+.25*sin(seq(0,2*pi,length.out=100)), size=1.5, linetype="dashed", color="#c82798") +  
+  guides(fill = F)
+```
+
+As shown above, the Random Forest model predicted the best out of all our models according to the standards we set. With only one false-negative, this is the lowest out of all the models and with an overall accuracy of `r rf.err` it holds up against the other models and does not gain too much Type I error. This confusion matrix portrays the predicition cutoff very well. Because the model biases towards classifying as malignant, there is much higher Type I error than Type II error, which is exactly what we were aiming for.
+
+\newpage
 
 # Ethans's Regression Proccess and Analysis
 
 *Insert text here*
 
+
+\newpage
 
 # Analysis Summary
 
@@ -343,6 +541,8 @@ Most of the features included the mean, worst and standard error of geometry mea
 If we had more features, we could reduce the multicollinearity and diversify the information we have regarding each cell.
 Finally, if we had **access to better technology** and more time or money, we could use a more advanced machine learning model.
 Because this project was done for a class, we were limited to the models we could use as there was a time contraint, especially in a team enviroment.
+
+\newpage
 
 # Works Cited
 
